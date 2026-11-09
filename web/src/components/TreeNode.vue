@@ -6,15 +6,17 @@ import { ICONS } from '../icons'
 const props = defineProps<{ node: TreeNode; currentPath: string }>()
 const emit = defineEmits<{
   (e: 'select', path: string): void
+  (e: 'toggle', node: TreeNode): void
   (e: 'action', payload: { action: string; path: string; name: string }): void
 }>()
 
-const hasChildren = computed(() => props.node.children.length > 0)
+// 未加载过子目录的节点也要显示折叠箭头（子目录在展开时才请求）。
+const hasChildren = computed(() => !props.node.loaded || props.node.children.length > 0)
 const isActive = computed(() => props.node.path === props.currentPath)
 
 function onToggle(e: MouseEvent) {
   e.stopPropagation()
-  if (hasChildren.value) props.node.expanded = !props.node.expanded
+  emit('toggle', props.node)
 }
 
 function onSelect() {
@@ -58,6 +60,7 @@ function onAction(action: string, e: MouseEvent) {
         :node="child"
         :current-path="currentPath"
         @select="emit('select', $event)"
+        @toggle="emit('toggle', $event)"
         @action="emit('action', $event)"
       />
     </ul>

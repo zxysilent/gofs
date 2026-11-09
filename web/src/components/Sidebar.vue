@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import type { TreeNode } from '../types'
+import type { PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../types'
 import { listDir, absUrl } from '../api'
 import { ICONS } from '../icons'
@@ -13,13 +13,10 @@ const emit = defineEmits<{
   (e: 'action', payload: { action: string; path: string; name: string }): void
 }>()
 
-// 顶层的各个目录节点（不再有"根目录"这个根）。
+// 顶层目录节点。目录树按层懒加载：展开某节点时才请求它的子目录，
+// 因此不受仓库规模限制，也不会出现"节点预算耗尽后兄弟目录消失"的问题。
 const topNodes = reactive<TreeNode[]>([])
-const built = ref(false)
 const showHelp = ref(false)
-
-const MAX_TREE_NODES = 2000
-let nodeCount = 0
 
 // 使用说明文档地址（后端提供的原始 Markdown：面向使用者的 gofs-readme.md）。
 const README_DOC = '/gofs-readme.md'
@@ -35,71 +32,132 @@ async function copyHelpPageUrl() {
 }
 
 function makeNode(path: string, name: string): TreeNode {
-  nodeCount++
-  return reactive({ path, name, expanded: false, children: [] })
+  return reactive({ path, name, expanded: false, loaded: false, children: [] })
 }
 
-// 完整目录树：一次性递归加载所有层级，展开折叠即时、无需再次请求。
-// path 为 '/' 时填充 topNodes，否则填充传入 node 的 children。
-async function buildTree() {
-  nodeCount = 0
-  await loadChildren('/', topNodes)
-  built.value = true
-  expandPathAncestors(props.currentPath)
+function dirsOf(items: PathItem[]): PathItem[] {
+  return (items || []).filter((p) => p.path_type.endsWith('Dir'))
 }
 
-async function loadChildren(path: string, out: TreeNode[]) {
-  let data
+async function fetchDirItems(path: string): Promise<PathItem[]> {
   try {
-    data = await listDir(path, { sort: 'name', order: 'asc', q: '' })
+    const data = await listDir(path, { sort: 'name', order: 'asc', q: '' })
+    return data.paths || []
   } catch {
+    return []
+  }
+}
+
+// 用服务端返回的条目刷新某个节点的子目录列表，并尽量复用已有节点
+// （保留已展开状态，避免刷新后整棵树塌陷）。
+function applyChildren(node: TreeNode, items: PathItem[]) {
+  const prev = new Map(node.children.map((c) => [c.path, c]))
+  node.children = dirsOf(items).map((d) => {
+    const path = normalizeRelPath(joinRelPath(node.path, d.name))
+    const old = prev.get(path)
+    if (old) {
+      old.name = d.name
+      return old
+    }
+    return makeNode(path, d.name)
+  })
+  node.loaded = true
+}
+
+// 首次需要时才加载某个节点的子目录。
+async function loadNode(node: TreeNode) {
+  if (node.loaded) return
+  applyChildren(node, await fetchDirItems(node.path))
+}
+
+async function loadRoot() {
+  const prev = new Map(topNodes.map((n) => [n.path, n]))
+  const dirs = dirsOf(await fetchDirItems('/'))
+  topNodes.splice(
+    0,
+    topNodes.length,
+    ...dirs.map((d) => {
+      const path = normalizeRelPath('/' + d.name)
+      return prev.get(path) || makeNode(path, d.name)
+    }),
+  )
+}
+
+// 根目录只加载一次；onNavigated 可能早于组件 onMounted 触发，必须等待它完成，
+// 否则遍历时 topNodes 还是空的，会导致当前目录及其祖先没有进入树。
+let rootReady: Promise<void> | null = null
+function ensureRoot(): Promise<void> {
+  if (!rootReady) rootReady = loadRoot()
+  return rootReady
+}
+
+// 串行化导航：并发的 onNavigated（首次加载、hashchange、刷新）会交替遍历同一棵树，
+// 导致某些层级被跳过，因此排队执行。
+let navChain: Promise<void> = Promise.resolve()
+
+// 展开节点的折叠箭头（懒加载子目录）。
+async function onToggle(node: TreeNode) {
+  if (node.expanded) {
+    node.expanded = false
+    node.collapsed = true // 记录用户主动折叠，导航刷新时不再自动展开
     return
   }
-  const dirs = (data.paths || []).filter((p) => p.path_type.endsWith('Dir'))
-  for (const d of dirs) {
-    if (nodeCount >= MAX_TREE_NODES) return
-    const child = makeNode(normalizeRelPath(joinRelPath(path, d.name)), d.name)
-    out.push(child)
-    await loadChildren(child.path, child.children)
-  }
+  await loadNode(node)
+  node.collapsed = false
+  node.expanded = node.children.length > 0
 }
 
-// 展开当前路径的所有祖先目录节点。
-function expandPathAncestors(path: string) {
+// 导航后由父组件调用：沿当前路径逐层加载并展开祖先目录。
+// 逐层请求，不会递归展开整棵树；当前目录直接复用列表页已取到的 items，
+// 不重复发请求（items 省略表示列表不可用，例如搜索时）。
+function onNavigated(path: string, items?: PathItem[]): Promise<void> {
+  navChain = navChain.then(() => walkTo(path, items)).catch(() => {})
+  return navChain
+}
+
+async function walkTo(path: string, items?: PathItem[]) {
+  path = normalizeRelPath(path)
+  await ensureRoot()
   if (path === '/') return
   const parts = path.split('/').filter(Boolean)
-  let cur = topNodes.find((c) => c.path === '/' + parts[0])
-  if (!cur) return
-  if (cur.children.length > 0) cur.expanded = true
-  let acc = '/' + parts[0]
-  for (let i = 1; i < parts.length; i++) {
-    acc = joinRelPath(acc, parts[i])
-    const next = cur.children.find((c) => c.path === acc)
-    if (!next) break
-    if (next.children.length > 0) next.expanded = true
-    cur = next
+  let list: TreeNode[] = topNodes
+  let acc = ''
+  for (let i = 0; i < parts.length; i++) {
+    acc = joinRelPath(acc || '/', parts[i])
+    const node = list.find((n) => n.path === acc)
+    if (!node) return // 该目录不在树中（隐藏或无权限），保持现状
+    if (i === parts.length - 1) {
+      if (items) applyChildren(node, items)
+      else await loadNode(node)
+      // 当前目录有子目录时展开，避免"树里看不到当前目录下的文件夹"；
+      // 用户手动折叠过的则不打扰。
+      if (node.children.length > 0 && !node.collapsed) node.expanded = true
+    } else {
+      if (!node.loaded) await loadNode(node)
+      if (node.children.length > 0) node.expanded = true
+    }
+    list = node.children
   }
-}
-
-// 导航后由父组件调用：展开祖先（高亮由 TreeNode 的 isActive computed 自动处理）。
-function onNavigated(path: string) {
-  if (built.value) expandPathAncestors(path)
 }
 
 function onSelect(path: string) {
   emit('navigate', path)
 }
 
-// 刷新目录树（重命名/删除/新建后由父组件调用）。
+// 重建目录树（重命名/删除后由父组件调用），并恢复到当前路径。
 async function rebuildTree() {
   topNodes.splice(0, topNodes.length)
-  built.value = false
-  await buildTree()
+  navChain = Promise.resolve()
+  rootReady = loadRoot()
+  await rootReady
+  await walkTo(props.currentPath)
 }
 
 defineExpose({ onNavigated, rebuildTree })
 
-onMounted(buildTree)
+onMounted(() => {
+  void ensureRoot()
+})
 </script>
 
 <template>
@@ -123,6 +181,7 @@ onMounted(buildTree)
           :node="node"
           :current-path="currentPath"
           @select="onSelect"
+          @toggle="onToggle"
           @action="emit('action', $event)"
         />
       </ul>

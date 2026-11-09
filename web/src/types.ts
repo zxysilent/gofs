@@ -27,6 +27,8 @@ export interface TreeNode {
   path: string
   name: string
   expanded: boolean
+  loaded: boolean
+  collapsed?: boolean
   children: TreeNode[]
 }
 

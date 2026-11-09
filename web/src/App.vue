@@ -102,12 +102,14 @@ async function navigate(path: string) {
 
   loading.value = true
   error.value = ''
+  let listedPaths: PathItem[] | undefined
   try {
     const params: ListParams = { sort: sort.value, order: order.value, q: search.value }
     const d = await listDir(path, params)
     d.paths = d.paths || []
     data.value = d
     relPath.value = normalizeRelPath(d.href || path)
+    listedPaths = d.paths
     document.title = `Index of ${relPath.value} - gofs`
     // update the URL hash (client-side route) without a full page load
     const target = '#' + relPath.value
@@ -119,7 +121,9 @@ async function navigate(path: string) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
     loading.value = false
-    sidebarRef.value?.onNavigated(relPath.value)
+    // 把本次列表数据一并交给目录树，避免为刷新树再发一次请求；
+    // 列表不可用（如搜索）时传 undefined，保留树中已有结构。
+    sidebarRef.value?.onNavigated(relPath.value, search.value ? undefined : listedPaths)
   }
 }
 
@@ -173,13 +177,13 @@ async function onUploadFiles(files: FileList | File[]) {
   }
 }
 
-// 执行一个写操作：出错统一 toast，成功后可选刷新目录树与文件列表。
+// 执行一个写操作：出错统一 toast；成功后刷新列表，必要时重建目录树。
 async function run(fn: () => Promise<string | null>, opts?: { rebuild?: boolean }) {
   try {
     const msg = await fn()
     if (msg === null) return // 用户取消或无需操作
-    if (opts?.rebuild) await sidebarRef.value?.rebuildTree()
     await refresh()
+    if (opts?.rebuild) await sidebarRef.value?.rebuildTree()
     showToast(msg, 'success')
   } catch (e) {
     showToast('操作失败: ' + (e instanceof Error ? e.message : e), 'error')
@@ -192,7 +196,7 @@ async function onNewFolder() {
   await run(async () => {
     await mkdir(joinRelPath(relPath.value, name))
     return `已创建文件夹 "${name}"`
-  })
+  }, { rebuild: true })
 }
 
 async function onNewFile() {
@@ -210,7 +214,7 @@ async function onDeleteItem(item: PathItem) {
   await run(async () => {
     await deletePath(joinRelPath(relPath.value, item.name))
     return `已删除 "${item.name}"`
-  })
+  }, { rebuild: isDir(item) })
 }
 
 async function onRenameItem(item: PathItem) {
@@ -219,7 +223,7 @@ async function onRenameItem(item: PathItem) {
   await run(async () => {
     await movePath(joinRelPath(relPath.value, item.name), joinRelPath(relPath.value, newName))
     return `已重命名为 "${newName}"`
-  })
+  }, { rebuild: isDir(item) })
 }
 
 // 复制文本并 toast 提示。
