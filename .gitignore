@@ -1,0 +1,27 @@
+# ---- Go ----
+# 编译产物（go build -o gofs .）
+/gofs
+/gofs.exe
+*.test
+*.out
+*.prof
+
+# ---- 前端依赖 ----
+/web/node_modules/
+
+# 注意：/web/dist 需要提交到仓库。
+# 它被 server.go 的 //go:embed web/dist 直接内嵌进二进制，
+# 若不提交则 go build 会失败（mustAsset 读 index.html 会 panic）。
+
+# ---- 日志与临时文件 ----
+*.log
+/tmp/
+/tmpdata/
+
+# ---- 编辑器 / 操作系统 ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
