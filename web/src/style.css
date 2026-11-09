@@ -142,11 +142,13 @@ body {
 }
 
 .tree-node {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
   height: 34px;
-  padding: 0 8px;
+  /* 右侧为 hover 操作按钮预留，同时让名称提前省略（默认不显示按钮，更简洁） */
+  padding: 0 60px 0 8px;
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
@@ -1164,7 +1166,7 @@ body {
   font-weight: 700;
 }
 
-/* 目录树：长名称截断 + hover 操作按钮 */
+/* 目录树：长名称截断；操作按钮仅在鼠标移入时淡入 */
 .tree-name {
   flex: 1;
   min-width: 0;
@@ -1174,17 +1176,20 @@ body {
 }
 
 .tree-actions {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
-  margin-left: auto;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s;
 }
 
-.tree-node:hover .tree-actions {
+.tree-node:hover .tree-actions,
+.tree-node:focus-within .tree-actions {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1193,8 +1198,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 20px;
   padding: 0;
   border: none;
   border-radius: 4px;
