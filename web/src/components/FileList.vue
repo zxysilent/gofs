@@ -41,7 +41,7 @@ function kindLabel(item: PathItem): string {
 </script>
 
 <template>
-  <div>
+  <div class="file-area">
     <div v-if="loading" class="file-loading">
       <span v-html="ICONS.spinner"></span><span>加载中...</span>
     </div>

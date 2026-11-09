@@ -422,6 +422,7 @@ body {
 /* ---------- File area ---------- */
 .file-area {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   position: relative;
 }
