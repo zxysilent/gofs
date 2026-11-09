@@ -21,8 +21,9 @@ const showHelp = ref(false)
 const MAX_TREE_NODES = 2000
 let nodeCount = 0
 
-// 使用手册地址（后端提供的原始 Markdown 文件）。
-const helpPageUrl = computed(() => location.origin + absUrl('/gofs-curl.md'))
+// 使用说明文档地址（后端提供的原始 Markdown：面向使用者的 gofs-readme.md）。
+const README_DOC = '/gofs-readme.md'
+const helpPageUrl = computed(() => location.origin + absUrl(README_DOC))
 
 function openHelpPage() {
   window.open(helpPageUrl.value, '_blank', 'noopener')
@@ -138,10 +139,10 @@ onMounted(buildTree)
         <div class="help-head">
           <div class="modal-title">gofs 使用说明</div>
           <div class="toolbar-spacer"></div>
-          <button class="btn" title="在新标签页打开 gofs-curl.md" @click="openHelpPage">
+          <button class="btn" title="在新标签页打开 gofs-readme.md" @click="openHelpPage">
             <span v-html="ICONS.external"></span>新页面打开
           </button>
-          <button class="btn" title="复制 gofs-curl.md 地址" @click="copyHelpPageUrl">
+          <button class="btn" title="复制 gofs-readme.md 地址" @click="copyHelpPageUrl">
             <span v-html="ICONS.copy"></span>复制
           </button>
         </div>

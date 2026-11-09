@@ -282,8 +282,8 @@ func TestServerVirtualDocs(t *testing.T) {
 
 	base := ts.URL
 
-	// 三个虚拟文件均可访问，且类型为 Markdown。
-	for _, name := range []string{readmeDocPath, agentDocPath, legacyDocPath} {
+	// 两个虚拟文件均可访问，且类型为 Markdown。
+	for _, name := range []string{readmeDocPath, agentDocPath} {
 		resp, err := http.Get(base + "/" + name)
 		if err != nil {
 			t.Fatalf("GET %s: %v", name, err)
@@ -311,9 +311,9 @@ func TestServerVirtualDocs(t *testing.T) {
 		t.Errorf("agent doc should contain upload example")
 	}
 
-	// 旧链接 gofs-curl.md 与 gofs-agent.md 内容一致。
-	if legacy := get(t, base+"/"+legacyDocPath); legacy != agent {
-		t.Errorf("legacy doc should equal agent doc")
+	// 已下线的兼容别名应返回 404（不被当作虚拟文件，也未落盘）。
+	if status := request(t, "GET", base+"/gofs-curl.md", "", nil); status != 404 {
+		t.Errorf("removed alias status = %d, want 404", status)
 	}
 
 	// 虚拟文件不出现在目录列表中。
@@ -374,7 +374,7 @@ func TestServerVirtualDocsRequireAuth(t *testing.T) {
 	defer ts.Close()
 
 	// 匿名不可读（虚拟文件同样受鉴权保护）。
-	for _, name := range []string{readmeDocPath, agentDocPath, legacyDocPath} {
+	for _, name := range []string{readmeDocPath, agentDocPath} {
 		if status := request(t, "GET", ts.URL+"/"+name, "", nil); status != 401 {
 			t.Errorf("anonymous %s status = %d, want 401", name, status)
 		}

@@ -35,7 +35,6 @@ const (
 const (
 	readmeDocPath = "gofs-readme.md" // 面向人类：功能、部署、Web UI 用法
 	agentDocPath  = "gofs-agent.md"  // 面向程序/Agent：curl API 全量参考
-	legacyDocPath = "gofs-curl.md"   // 旧链接兼容，内容同 agentDocPath
 )
 
 // virtualDocs maps a virtual path to its content generator.
@@ -43,7 +42,6 @@ const (
 var virtualDocs = map[string]func(s *Server, base string) string{
 	readmeDocPath: genReadmeDoc,
 	agentDocPath:  genAgentDoc,
-	legacyDocPath: genAgentDoc,
 }
 
 //go:embed web/dist
@@ -273,7 +271,7 @@ func (s *Server) handle(w *responseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// 虚拟 Markdown 文档（gofs-readme.md / gofs-agent.md / gofs-curl.md）。
+	// 虚拟 Markdown 文档（gofs-readme.md / gofs-agent.md）。
 	// 需通过上面的鉴权；磁盘上存在同名真实文件时以真实文件为准。
 	if (method == http.MethodGet || method == http.MethodHead) && accessPaths.perm.read() {
 		if gen, ok := virtualDocs[relativePath]; ok {
@@ -618,7 +616,6 @@ func genReadmeDoc(s *Server, base string) string {
 	d.line("| --- | --- |")
 	d.line("| `/" + readmeDocPath + "` | 本文件，面向使用者 |")
 	d.line("| `/" + agentDocPath + "` | 程序接口手册，面向脚本 / Agent |")
-	d.line("| `/" + legacyDocPath + "` | 与 `" + agentDocPath + "` 内容相同，兼容旧链接 |")
 	return d.String()
 }
 
@@ -746,7 +743,6 @@ func genAgentDoc(s *Server, base string) string {
 	d.list(
 		"`/"+readmeDocPath+"`：面向人的功能与部署说明。",
 		"`/"+agentDocPath+"`：本文件。",
-		"`/"+legacyDocPath+"`：与本文件相同，兼容旧链接。",
 	)
 	return d.String()
 }

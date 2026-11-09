@@ -7,14 +7,15 @@ import { copyText, showToast } from '../dialog'
 const emit = defineEmits<{ (e: 'back'): void }>()
 
 // 手册内容由后端提供（Markdown），前端只负责展示。
-const manualUrl = absUrl('/gofs-curl.md')
+const AGENT_DOC = '/gofs-agent.md'
+const manualUrl = absUrl(AGENT_DOC)
 const manual = ref('')
 const loading = ref(true)
 const error = ref('')
 
 onMounted(async () => {
   try {
-    manual.value = await readText('/gofs-curl.md')
+    manual.value = await readText(AGENT_DOC)
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -44,7 +45,7 @@ function openManual() {
       <button class="btn" title="返回文件列表" @click="emit('back')">
         <span v-html="ICONS.collapse"></span>返回
       </button>
-      <span class="help-page-title">curl 使用手册</span>
+      <span class="help-page-title">接口手册</span>
       <div class="toolbar-spacer"></div>
       <button class="btn" title="在新标签页打开原始 Markdown" @click="openManual">
         <span v-html="ICONS.external"></span>原始文件

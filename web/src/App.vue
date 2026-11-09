@@ -86,12 +86,12 @@ let suppressHashEvent = false
 async function navigate(path: string) {
   path = normalizeRelPath(path)
 
-  // 特殊路由：curl 使用手册页，不请求服务端目录数据。
+  // 特殊路由：接口手册页（展示 /gofs-agent.md），不请求服务端目录数据。
   if (isHelpRoute(path)) {
     loading.value = false
     error.value = ''
     relPath.value = HELP_ROUTE
-    document.title = 'gofs curl 使用手册'
+    document.title = 'gofs 接口手册'
     const target = '#' + HELP_ROUTE
     if (location.hash !== target) {
       suppressHashEvent = true
