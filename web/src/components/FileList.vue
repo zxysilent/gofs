@@ -45,11 +45,8 @@ function kindLabel(item: PathItem): string {
     <div v-if="loading" class="file-loading">
       <span v-html="ICONS.spinner"></span><span>加载中...</span>
     </div>
-    <div v-else-if="!items || items.length === 0" class="file-empty">
-      <span v-html="ICONS.folder"></span>
-      <p>空目录</p>
-    </div>
 
+    <!-- 空目录不显示任何占位内容 -->
     <div v-else-if="viewMode === 'grid'" class="file-grid">
       <div
         v-for="item in items"

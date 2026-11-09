@@ -147,14 +147,15 @@ body {
   align-items: center;
   gap: 5px;
   height: 34px;
-  /* 右侧为 hover 操作按钮预留，同时让名称提前省略（默认不显示按钮，更简洁） */
-  padding: 0 60px 0 8px;
+  /* 默认不给按钮留位置，名称铺满整行；hover 时才让出右侧空间 */
+  padding: 0 8px;
   border-radius: 6px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   color: var(--text);
   font-size: 15px;
+  transition: padding-right 0.12s ease;
 }
 
 /* 树内图标与文字垂直居中（只作用于图标 span，不能影响 .tree-name 文字） */
@@ -170,6 +171,8 @@ body {
 
 .tree-node:hover {
   background: var(--bg-hover);
+  /* 鼠标移入时名称变短，为浮层按钮腾出位置 */
+  padding-right: 60px;
 }
 
 .tree-node.active {
@@ -423,23 +426,14 @@ body {
   position: relative;
 }
 
-.file-loading,
-.file-empty {
+.file-loading {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   height: 100%;
   color: var(--text-secondary);
   gap: 12px;
-}
-
-.file-loading {
-  flex-direction: row;
-}
-
-.file-empty p {
-  margin: 0;
 }
 
 /* list view */
