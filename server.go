@@ -27,10 +27,24 @@ const (
 	resumableUploadMinSize = 20971520 // 20M
 	healthCheckPath        = "__dufs__/health"
 	maxSubpathsCount       = 1000
-	// curlManualPath is the virtual path serving the curl usage manual
-	// (Markdown). A real file with the same name takes precedence.
-	curlManualPath = "gofs-curl.md"
 )
+
+// Virtual Markdown documents served without touching the filesystem.
+// They are generated per request so the URLs inside reflect the host the
+// client actually used (reverse proxy / path prefix friendly).
+const (
+	readmeDocPath = "gofs-readme.md" // 面向人类：功能、部署、Web UI 用法
+	agentDocPath  = "gofs-agent.md"  // 面向程序/Agent：curl API 全量参考
+	legacyDocPath = "gofs-curl.md"   // 旧链接兼容，内容同 agentDocPath
+)
+
+// virtualDocs maps a virtual path to its content generator.
+// A real file with the same name on disk always takes precedence.
+var virtualDocs = map[string]func(s *Server, base string) string{
+	readmeDocPath: genReadmeDoc,
+	agentDocPath:  genAgentDoc,
+	legacyDocPath: genAgentDoc,
+}
 
 //go:embed web/dist
 var assetsFS embed.FS
@@ -230,13 +244,6 @@ func (s *Server) handle(w *responseWriter, r *http.Request) error {
 		return nil
 	}
 
-	// 虚拟文件：curl 使用手册（Markdown）。磁盘上存在同名文件时以真实文件为准。
-	if relativePath == curlManualPath && (method == http.MethodGet || method == http.MethodHead) {
-		if p, ok := s.joinPath(relativePath); !ok || !fileExists(p) {
-			return s.serveCurlManual(w, r, method == http.MethodHead)
-		}
-	}
-
 	if method == http.MethodGet {
 		done, err := s.handleInternal(relativePath, w)
 		if err != nil {
@@ -264,6 +271,16 @@ func (s *Server) handle(w *responseWriter, r *http.Request) error {
 			statusForbidden(w)
 		}
 		return nil
+	}
+
+	// 虚拟 Markdown 文档（gofs-readme.md / gofs-agent.md / gofs-curl.md）。
+	// 需通过上面的鉴权；磁盘上存在同名真实文件时以真实文件为准。
+	if (method == http.MethodGet || method == http.MethodHead) && accessPaths.perm.read() {
+		if gen, ok := virtualDocs[relativePath]; ok {
+			if p, joined := s.joinPath(relativePath); !joined || !fileExists(p) {
+				return s.serveVirtualDoc(gen, w, r, method == http.MethodHead)
+			}
+		}
 	}
 
 	if detectNoScript(userAgent) {
@@ -499,39 +516,244 @@ func requestBaseURL(r *http.Request, uriPrefix string) string {
 	return strings.TrimSuffix(scheme+"://"+host+uriPrefix, "/")
 }
 
-// generateCurlManual renders the curl usage manual in Markdown for a base URL.
-func generateCurlManual(base string) string {
-	var b strings.Builder
-	b.WriteString("# gofs curl 使用手册\n\n")
-	b.WriteString("服务地址：" + base + "\n")
-	b.WriteString("本手册地址：" + base + "/" + curlManualPath + "\n")
+// mdDoc is a tiny helper for building Markdown documents.
+type mdDoc struct{ b strings.Builder }
 
-	section := func(title, body string) {
-		b.WriteString("\n## " + title + "\n")
-		b.WriteString(body + "\n")
+func (d *mdDoc) line(s string) { d.b.WriteString(s); d.b.WriteByte('\n') }
+func (d *mdDoc) blank()        { d.b.WriteByte('\n') }
+
+// h writes a heading, preceded by a blank line so Markdown renders cleanly.
+func (d *mdDoc) h(level int, s string) {
+	if d.b.Len() > 0 {
+		d.blank()
 	}
+	d.line(strings.Repeat("#", level) + " " + s)
+}
+func (d *mdDoc) list(items ...string) {
+	for _, it := range items {
+		d.line("- " + it)
+	}
+}
+func (d *mdDoc) String() string { return d.b.String() }
 
-	section("上传文件", "curl -T local/path/to/file.ext "+base+"/path/to/file.ext")
-	section("下载文件", "curl -O "+base+"/path/to/file.ext")
-	section("查看列表", `curl "`+base+`/?json="`)
-	section("搜索文件", `curl "`+base+`/?json=&q=keyword"`)
-	section("重命名 / 移动", `curl -X MOVE -H "Destination: `+base+`/new/path" `+base+`/old/path`)
-	section("复制", `curl -X COPY -H "Destination: `+base+`/new/path" `+base+`/old/path`)
-	section("删除", "curl -X DELETE "+base+"/path/to/file.ext")
-	section("新建目录", "curl -X MKCOL "+base+"/path/to/dir")
-	section("新建空文件", `curl -X PUT --data "" `+base+`/path/to/empty.txt`)
-	section("打包下载目录", `curl -o dir.zip "`+base+`/path/to/dir?zip"`)
-	section("获取文件 SHA256", `curl "`+base+`/path/to/file.ext?hash"`)
-	section("分片上传（大文件）", `curl -T local/path/to/file.ext -H "X-Update-Range: append" `+base+`/path/to/file.ext`)
-	section("带认证访问（如启用了认证）",
-		"curl -u user:pass "+base+"/path/to/file.ext\n"+
-			`curl -H "Authorization: Basic $(echo -n user:pass | base64)" `+base+`/path/to/file.ext`)
-	return b.String()
+// yesNo renders a capability flag for the manual.
+func yesNo(ok bool) string {
+	if ok {
+		return "允许"
+	}
+	return "不允许"
 }
 
-// serveCurlManual serves the generated Markdown manual.
-func (s *Server) serveCurlManual(w *responseWriter, r *http.Request, headOnly bool) error {
-	body := generateCurlManual(requestBaseURL(r, s.args.uriPrefix))
+// genReadmeDoc renders the human-facing manual (features and UI usage).
+func genReadmeDoc(s *Server, base string) string {
+	var d mdDoc
+	d.h(1, "gofs 使用说明")
+	d.blank()
+	d.line("服务地址：" + base)
+	d.line("本文件地址：" + base + "/" + readmeDocPath)
+	d.line("程序接口手册：" + base + "/" + agentDocPath)
+	d.blank()
+	d.line("gofs 是 dufs 的 Go 重实现：单二进制文件服务器，支持网页浏览、上传下载、")
+	d.line("在线预览与编辑、打包下载、搜索、WebDAV 以及 curl 调用。")
+
+	d.h(2, "Web 界面")
+	d.h(3, "浏览与导航")
+	d.list(
+		"左侧目录树点击文件夹进入；右侧列表点击文件夹进入、点击文件预览。",
+		"顶部面包屑可快速回到任意上级目录；地址用 `#/路径` 记录，可收藏、刷新不丢位置。",
+		"侧栏与内容之间的分隔条可左右拖动调整宽度。",
+	)
+	d.h(3, "搜索与排序")
+	d.list(
+		"搜索框输入关键字后回车，在当前目录递归搜索。",
+		"按名称 / 修改时间 / 大小排序，再次点击同一列切换升序降序。",
+	)
+	d.h(3, "文件操作")
+	d.list(
+		"上传：点「上传」选择文件，显示实时进度。",
+		"新建文件夹 / 新建文件；重命名、删除（删除有二次确认）。",
+		"打包下载：把当前目录或某个子目录打包为 zip。",
+		"复制完整路径、复制 curl 下载命令、复制 curl 上传命令。",
+		"每行右侧的「新窗口打开」会在浏览器新标签页直接打开该文件。",
+	)
+	d.h(3, "预览与编辑")
+	d.list(
+		"支持图片、视频、音频、PDF、Markdown、代码、JSON、文本在线预览。",
+		"文本类文件可点「编辑」在线修改，`Ctrl/Cmd+S` 保存；Markdown 编辑时可切换预览。",
+	)
+
+	d.h(2, "本实例能力")
+	d.line("| 能力 | 状态 |")
+	d.line("| --- | --- |")
+	d.line("| 上传 / 新建 | " + yesNo(s.args.allowUpload) + " |")
+	d.line("| 删除 / 重命名 / 移动 | " + yesNo(s.args.allowDelete) + " |")
+	d.line("| 搜索 | " + yesNo(s.args.allowSearch) + " |")
+	d.line("| 打包下载 | " + yesNo(s.args.allowArchive) + " |")
+	d.line("| 文件哈希（SHA256） | " + yesNo(s.args.allowHash) + " |")
+	d.blank()
+	d.line("未开放的能力在界面上不显示对应按钮，服务端也会拒绝相应请求。")
+
+	d.h(2, "命令行")
+	d.line("```sh")
+	d.line("gofs [OPTIONS] [serve-path]")
+	d.line("```")
+	d.blank()
+	d.list(
+		"`-b, --bind <addrs>` 监听地址；`-p, --port <port>` 监听端口（默认 5000）。",
+		"`--path-prefix <path>` 部署在子路径下时使用，虚拟文件的地址也会随之变化。",
+		"`-A, --allow-all` 放开全部操作；也可分别用 `--allow-upload`、`--allow-delete`、`--allow-search`、`--allow-archive`、`--allow-hash` 精细控制。",
+		"`-a, --auth <rules>` 认证与权限，例如 `admin:pass@/:rw,guest:pass@/:r`。",
+		"`--hidden <value>` 在列表中隐藏指定路径。",
+	)
+
+	d.h(2, "WebDAV")
+	d.line("挂载地址即服务根 `" + base + "/`，可用任意支持 WebDAV 的客户端连接")
+	d.line("（Windows 映射网络驱动器、macOS Finder、Cyberduck、rclone 等）。")
+
+	d.h(2, "内置虚拟文件")
+	d.line("以下文件不存在于磁盘上，由服务按请求动态生成，因此其中的地址始终与当前访问地址一致；")
+	d.line("若磁盘中存在同名真实文件，则优先返回真实文件。")
+	d.blank()
+	d.line("| 路径 | 用途 |")
+	d.line("| --- | --- |")
+	d.line("| `/" + readmeDocPath + "` | 本文件，面向使用者 |")
+	d.line("| `/" + agentDocPath + "` | 程序接口手册，面向脚本 / Agent |")
+	d.line("| `/" + legacyDocPath + "` | 与 `" + agentDocPath + "` 内容相同，兼容旧链接 |")
+	return d.String()
+}
+
+// genAgentDoc renders the machine-facing manual (HTTP/curl API reference).
+func genAgentDoc(s *Server, base string) string {
+	var d mdDoc
+	d.h(1, "gofs HTTP 接口手册")
+	d.blank()
+	d.line("服务地址：" + base)
+	d.line("本文件地址：" + base + "/" + agentDocPath)
+	d.line("人类向说明：" + base + "/" + readmeDocPath)
+	d.blank()
+	d.line("面向脚本与 Agent：所有操作都是标准 HTTP 请求，无需 SDK。")
+
+	d.h(2, "通用约定")
+	d.list(
+		"路径相对于服务根；若部署在子路径，所有地址以 `"+base+"` 为前缀。",
+		"目录信息统一用 `?json=` 取 JSON；不带该参数返回 HTML 页面。",
+		"上传会自动创建缺失的父目录，无需先建目录。",
+		"写操作需要服务端开启写权限，或认证账号具备 `rw` 权限。",
+	)
+
+	d.h(2, "读取")
+	d.h(3, "目录列表")
+	d.line("```sh")
+	d.line(`curl "` + base + `/?json="`)
+	d.line("```")
+	d.line("返回 JSON，关键字段：")
+	d.list(
+		"`href` 当前路径；`kind` 为 `Index` / `Edit` / `View`。",
+		"`uri_prefix` 部署前缀；`allow_*` 为各能力的布尔开关。",
+		"`paths[]` 条目数组，每项含 `path_type`（`Dir`、`SymlinkDir`、`File`、`SymlinkFile`）、`name`、`mtime`（Unix 秒）、`size`（文件为字节数，目录为条目数）。",
+	)
+	d.h(3, "搜索")
+	d.line("```sh")
+	d.line(`curl "` + base + `/?json=&q=keyword"`)
+	d.line("```")
+	d.line("在当前目录递归搜索名称匹配 `keyword` 的条目，结果同样以 `paths[]` 返回；")
+	d.line("单次最多 " + strconv.Itoa(maxSubpathsCount) + " 条。")
+	d.h(3, "下载文件")
+	d.line("```sh")
+	d.line("curl -O " + base + "/path/to/file.ext")
+	d.line("```")
+
+	d.h(2, "写入")
+	d.h(3, "上传文件")
+	d.line("```sh")
+	d.line("curl -T local/path/to/file.ext " + base + "/path/to/file.ext")
+	d.line("```")
+	d.line("- 成功返回 `201 Created`。")
+	d.line("- 覆盖已有文件且内容非空时，需要同时具备删除权限（`--allow-delete` 或 `rw`），否则返回 `403`。")
+	d.h(3, "分片 / 续传上传")
+	d.line("```sh")
+	d.line("curl -T local/path/to/file.ext -H \"X-Update-Range: append\" " + base + "/path/to/file.ext")
+	d.line("```")
+	d.line("配合 `PATCH` 与 `X-Update-Offset` 可从指定偏移续写；小于 " +
+		strconv.Itoa(resumableUploadMinSize/1024/1024) + " MiB 的文件不保留续传状态。")
+	d.h(3, "新建目录")
+	d.line("```sh")
+	d.line("curl -X MKCOL " + base + "/path/to/dir")
+	d.line("```")
+	d.line("成功返回 `201`；目录已存在返回 `405 Already exists`。")
+	d.h(3, "重命名 / 移动")
+	d.line("```sh")
+	d.line(`curl -X MOVE -H "Destination: ` + base + `/new/path" ` + base + `/old/path`)
+	d.line("```")
+	d.h(3, "复制")
+	d.line("```sh")
+	d.line(`curl -X COPY -H "Destination: ` + base + `/new/path" ` + base + `/old/path`)
+	d.line("```")
+	d.line("`Destination` 建议做 URI 编码，以便正确处理中文等非 ASCII 文件名。")
+	d.h(3, "删除")
+	d.line("```sh")
+	d.line("curl -X DELETE " + base + "/path/to/file.ext")
+	d.line("```")
+	d.line("目录会被递归删除，成功返回 `204`。")
+
+	d.h(2, "附加查询参数")
+	d.line("| 参数 | 适用对象 | 说明 |")
+	d.line("| --- | --- | --- |")
+	d.line("| `?json=` | 目录 / 文件 | 输出 JSON 元信息 |")
+	d.line("| `?q=keyword` | 目录 | 递归搜索 |")
+	d.line("| `?zip` | 目录 | 打包为 zip 下载 |")
+	d.line("| `?hash` | 文件 | 返回 SHA256 十六进制摘要 |")
+	d.line("| `?simple` / `?noscript` | 目录 | 返回无脚本的简单 HTML 页面 |")
+	d.blank()
+	d.line("```sh")
+	d.line(`curl -o dir.zip "` + base + `/path/to/dir?zip"`)
+	d.line(`curl "` + base + `/path/to/file.ext?hash"`)
+	d.line("```")
+
+	d.h(2, "认证")
+	d.line("服务启用 `--auth` 后，未授权请求返回 `401`。以下两种方式等价：")
+	d.line("```sh")
+	d.line("curl -u user:pass " + base + "/path/to/file.ext")
+	d.line(`curl -H "Authorization: Basic $(echo -n user:pass | base64)" ` + base + `/path/to/file.ext`)
+	d.line("```")
+	d.line("也支持 `?token=<token>` 查询参数方式（由 `--auth` 规则生成的令牌）。")
+
+	d.h(2, "状态码")
+	d.line("| 状态码 | 含义 |")
+	d.line("| --- | --- |")
+	d.line("| `200` | 成功 |")
+	d.line("| `201` | 创建成功（`PUT`、`MKCOL`） |")
+	d.line("| `204` | 成功且无响应体（`DELETE`、`MOVE`、`COPY`、分片 `PUT`） |")
+	d.line("| `400` | 路径非法或请求头参数错误 |")
+	d.line("| `401` | 需要认证 |")
+	d.line("| `403` | 无权限（能力未开启或账号权限不足） |")
+	d.line("| `404` | 目标不存在 |")
+	d.line("| `405` | 方法不允许，或目标已存在 |")
+	d.line("| `412` | WebDAV 前置条件失败（`If-Match` / `If-None-Match`） |")
+
+	d.h(2, "本实例能力")
+	d.line("| 能力 | 状态 |")
+	d.line("| --- | --- |")
+	d.line("| 上传 / 新建 | " + yesNo(s.args.allowUpload) + " |")
+	d.line("| 删除 / 重命名 / 移动 | " + yesNo(s.args.allowDelete) + " |")
+	d.line("| 搜索 | " + yesNo(s.args.allowSearch) + " |")
+	d.line("| 打包下载 | " + yesNo(s.args.allowArchive) + " |")
+	d.line("| 文件哈希（SHA256） | " + yesNo(s.args.allowHash) + " |")
+	d.blank()
+	d.line("未开放的能力对应请求会返回 `403`。")
+
+	d.h(2, "相关文档")
+	d.list(
+		"`/"+readmeDocPath+"`：面向人的功能与部署说明。",
+		"`/"+agentDocPath+"`：本文件。",
+		"`/"+legacyDocPath+"`：与本文件相同，兼容旧链接。",
+	)
+	return d.String()
+}
+
+// serveVirtualDoc serves a generated Markdown document.
+func (s *Server) serveVirtualDoc(gen func(*Server, string) string, w *responseWriter, r *http.Request, headOnly bool) error {
+	body := gen(s, requestBaseURL(r, s.args.uriPrefix))
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Content-Type-Options", "nosniff")

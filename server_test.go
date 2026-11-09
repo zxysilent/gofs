@@ -274,3 +274,115 @@ func request(t *testing.T, method, url, body string, headers map[string]string) 
 	io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode
 }
+
+func TestServerVirtualDocs(t *testing.T) {
+	dir := t.TempDir()
+	ts := newTestServer(t, testArgs(t, dir, true))
+	defer ts.Close()
+
+	base := ts.URL
+
+	// 三个虚拟文件均可访问，且类型为 Markdown。
+	for _, name := range []string{readmeDocPath, agentDocPath, legacyDocPath} {
+		resp, err := http.Get(base + "/" + name)
+		if err != nil {
+			t.Fatalf("GET %s: %v", name, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Errorf("%s status = %d, want 200", name, resp.StatusCode)
+		}
+		if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/markdown") {
+			t.Errorf("%s content-type = %q", name, ct)
+		}
+		if !strings.Contains(string(body), base) {
+			t.Errorf("%s should embed the request base URL %q", name, base)
+		}
+	}
+
+	// readme 指向 agent 文档；agent 文档包含 curl 示例。
+	readme := get(t, base+"/"+readmeDocPath)
+	if !strings.Contains(readme, agentDocPath) {
+		t.Errorf("readme should link to %s", agentDocPath)
+	}
+	agent := get(t, base+"/"+agentDocPath)
+	if !strings.Contains(agent, "curl -T") {
+		t.Errorf("agent doc should contain upload example")
+	}
+
+	// 旧链接 gofs-curl.md 与 gofs-agent.md 内容一致。
+	if legacy := get(t, base+"/"+legacyDocPath); legacy != agent {
+		t.Errorf("legacy doc should equal agent doc")
+	}
+
+	// 虚拟文件不出现在目录列表中。
+	var data IndexData
+	if err := json.Unmarshal([]byte(get(t, base+"/?json=")), &data); err != nil {
+		t.Fatalf("list json: %v", err)
+	}
+	for _, p := range data.Paths {
+		if _, ok := virtualDocs[p.Name]; ok {
+			t.Errorf("virtual doc %q should not be listed", p.Name)
+		}
+	}
+}
+
+func TestServerVirtualDocsRealFileWins(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, readmeDocPath), []byte("# custom readme"), 0o644)
+
+	ts := newTestServer(t, testArgs(t, dir, true))
+	defer ts.Close()
+
+	if body := get(t, ts.URL+"/"+readmeDocPath); body != "# custom readme" {
+		t.Errorf("real file should take precedence, got %q", body)
+	}
+	// 其它虚拟文件仍然由服务生成。
+	if body := get(t, ts.URL+"/"+agentDocPath); !strings.Contains(body, "curl -T") {
+		t.Errorf("agent doc should still be generated")
+	}
+}
+
+func TestServerVirtualDocsHead(t *testing.T) {
+	dir := t.TempDir()
+	ts := newTestServer(t, testArgs(t, dir, true))
+	defer ts.Close()
+
+	resp, err := http.Head(ts.URL + "/" + agentDocPath)
+	if err != nil {
+		t.Fatalf("HEAD: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Errorf("HEAD status = %d, want 200", resp.StatusCode)
+	}
+	if len(body) != 0 {
+		t.Errorf("HEAD should have empty body, got %d bytes", len(body))
+	}
+	if resp.Header.Get("Content-Length") == "0" || resp.Header.Get("Content-Length") == "" {
+		t.Errorf("HEAD should report Content-Length")
+	}
+}
+
+func TestServerVirtualDocsRequireAuth(t *testing.T) {
+	dir := t.TempDir()
+	args := testArgs(t, dir, true)
+	args.auth = mustAccessControl([]string{"admin:123@/:rw"})
+	ts := newTestServer(t, args)
+	defer ts.Close()
+
+	// 匿名不可读（虚拟文件同样受鉴权保护）。
+	for _, name := range []string{readmeDocPath, agentDocPath, legacyDocPath} {
+		if status := request(t, "GET", ts.URL+"/"+name, "", nil); status != 401 {
+			t.Errorf("anonymous %s status = %d, want 401", name, status)
+		}
+	}
+
+	// 认证后可读。
+	body, status := getStatus(t, ts.URL+"/"+agentDocPath, map[string]string{"Authorization": "Basic " + b64("admin:123")})
+	if status != 200 || !strings.Contains(body, "curl -T") {
+		t.Errorf("authenticated: status=%d body=%q", status, body)
+	}
+}

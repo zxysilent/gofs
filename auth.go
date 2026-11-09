@@ -57,6 +57,10 @@ const (
 func (p AccessPerm) indexOnly() bool { return p == permIndexOnly }
 func (p AccessPerm) readWrite() bool { return p == permReadWrite }
 
+// read reports whether the permission allows fetching file contents
+// (both read-only and read-write do; index-only does not).
+func (p AccessPerm) read() bool { return p != permIndexOnly }
+
 // maxPerm returns the higher of the two permissions.
 func maxPerm(a, b AccessPerm) AccessPerm {
 	if b > a {
