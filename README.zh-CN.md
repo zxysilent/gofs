@@ -227,33 +227,33 @@ gofs --tls-cert cert.pem --tls-key key.pem
 
 ## 访问日志
 
-每个请求一行结构化记录，字段固定 —— 不需要维护格式模板，也不会把时间戳再
-拼一次塞进引号包裹的消息里：
+每个请求两行结构化记录，共享同一个 `trace` —— 一行写请求，一行写结果。
+不需要维护格式模板，也不会把时间戳再拼一次塞进引号包裹的消息里：
 
 ```
-time=2026-11-10T15:45:48.350 level=INF trace=cpecek45 caller=api-end ip=127.0.0.1 method=GET uri=/gamma status=200 size=425 dur=258.765µs
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-begin ip=127.0.0.1 GET=/gamma
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-end status=200 size=425 dur=116.841µs
 ```
 
-| 字段 | 含义 |
-|------|------|
-| `trace` | 请求 id，同时作为 `X-Request-ID` 响应头返回 |
-| `caller` | `api-end`；开启 debug 日志时另有 `api-begin` |
-| `ip` | 客户端地址 |
-| `method` / `uri` | 请求方法与路径（已解码，控制字符已转义） |
-| `status` / `size` / `dur` | 响应状态码、响应体字节数、处理耗时 |
-| `user` | 已认证用户，存在时才有 |
-| `err` | 错误信息，仅出错时出现（error 级别） |
+请求行写"谁要了什么"，结果行写"结果如何"，每个字段只出现一次：
+
+| 字段 | 所在行 | 含义 |
+|------|--------|------|
+| `trace` | 两行 | 请求 id，同时作为 `X-Request-ID` 响应头返回 |
+| `caller` | 两行 | `api-begin` 或 `api-end` |
+| `ip` | begin | 客户端地址 |
+| `<METHOD>` | begin | 请求方法作字段名，路径与查询串作值（`GET=/a/b.md`） |
+| `status` / `size` / `dur` | end | 响应状态码、响应体字节数、处理耗时 |
+| `err` | end | 错误信息，仅出错时出现（error 级别） |
+
+两行都是 info 级别，默认即可配对，无需额外开关：
+
+```sh
+grep 'trace=cfyk5fcc' gofs.log
+```
 
 请求若携带合法的上游 `X-Request-ID`（8–64 位字母数字）会直接复用，因此在反向
 代理后面 trace 依然连贯。静态资源不记录访问日志。
-
-`--log-level debug` 会额外输出一行 `api-begin`，与 `api-end` 共享同一个 `trace`，
-便于把慢请求的开始与结束对上：
-
-```sh
-# 追踪单个请求的完整过程
-grep 'trace=cpecek45' gofs.log
-```
 
 ## 内置虚拟文档
 

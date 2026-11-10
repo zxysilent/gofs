@@ -242,33 +242,35 @@ gofs --tls-cert cert.pem --tls-key key.pem
 
 ## Access log
 
-One structured record per request, with a fixed field set — no custom template
-to maintain, and never a second copy of the timestamp inside a quoted message:
+Two structured records per request, sharing one `trace` — the request line and
+the result line. No custom template to maintain, and never a second copy of the
+timestamp inside a quoted message:
 
 ```
-time=2026-11-10T15:45:48.350 level=INF trace=cpecek45 caller=api-end ip=127.0.0.1 method=GET uri=/gamma status=200 size=425 dur=258.765µs
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-begin ip=127.0.0.1 GET=/gamma
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-end status=200 size=425 dur=116.841µs
 ```
 
-| Field | Meaning |
-|-------|---------|
-| `trace` | request id, also returned as the `X-Request-ID` response header |
-| `caller` | `api-end`, or `api-begin` when debug logging is on |
-| `ip` | client address |
-| `method` / `uri` | request method and path (decoded, control characters escaped) |
-| `status` / `size` / `dur` | response status, body bytes, handling time |
-| `user` | authenticated user, when present |
-| `err` | error message, only on failure (logged at error level) |
+The request record carries who asked for what, the result record carries how it
+went. Each field appears exactly once:
+
+| Field | Line | Meaning |
+|-------|------|---------|
+| `trace` | both | request id, also returned as the `X-Request-ID` response header |
+| `caller` | both | `api-begin` or `api-end` |
+| `ip` | begin | client address |
+| `<METHOD>` | begin | method as the field name, path and query as the value (`GET=/a/b.md`) |
+| `status` / `size` / `dur` | end | response status, body bytes, handling time |
+| `err` | end | error message, only on failure (logged at error level) |
+
+Both lines are logged at info level, so pairing them needs no extra flag:
+
+```sh
+grep 'trace=cfyk5fcc' gofs.log
+```
 
 An upstream `X-Request-ID` (8–64 alphanumerics) is reused when present, so the
 id stays consistent behind a reverse proxy. Static assets are not logged.
-
-`--log-level debug` adds an `api-begin` line carrying the same `trace`, which
-makes it easy to pair the start and end of a slow request.
-
-```sh
-# follow one request end to end
-grep 'trace=cpecek45' gofs.log
-```
 
 ## Built-in virtual documents
 

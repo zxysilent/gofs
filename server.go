@@ -235,7 +235,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg = err.Error()
 	}
-	s.args.accessLog.end(r, trace, rw.status, rw.size, time.Since(start), errMsg)
+	s.args.accessLog.end(trace, rw.status, rw.size, time.Since(start), errMsg)
 }
 
 func (s *Server) handle(w *responseWriter, r *http.Request) error {

@@ -42,7 +42,8 @@ func main() {
 }
 
 func initLogger(logFile, logLevel string) {
-	// 默认只输出 INFO 及以上；--log-level debug 额外输出每个请求的 api-begin 行。
+	// 访问日志的 begin/end 两行都是 info 级别，默认就输出；
+	// --log-level 用于调高门槛（warn/error）或打开库自身的 debug 输出。
 	logs.SetLevel(logs.LevelInfo)
 	if logLevel != "" {
 		logs.SetLevel(logs.ParseLevel(logLevel))

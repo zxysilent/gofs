@@ -34,20 +34,17 @@ func newLogRequest(t *testing.T, method, target string) *http.Request {
 	return r
 }
 
-// 访问日志必须输出结构化字段，而不是把整行塞进 msg=。
-func TestAccessLogRecord(t *testing.T) {
+// end 只带结果字段：状态码、响应体大小、耗时。
+func TestAccessLogEndRecord(t *testing.T) {
 	l := &accessLogger{}
 	out := captureLog(t, logs.LevelInfo, func() {
-		l.end(newLogRequest(t, "GET", "/a/b.md?x=1"), "abc12345", http.StatusOK, 260, 824*time.Microsecond, "")
+		l.end("abc12345", http.StatusOK, 260, 824*time.Microsecond, "")
 	})
 
 	for _, want := range []string{
 		"level=INF",
 		"trace=abc12345",
 		"caller=api-end",
-		"ip=192.0.2.10",
-		"method=GET",
-		"uri=/a/b.md?x=1",
 		"status=200",
 		"size=260",
 		"dur=824µs",
@@ -56,9 +53,54 @@ func TestAccessLogRecord(t *testing.T) {
 			t.Errorf("log output missing %q: %s", want, out)
 		}
 	}
+	// 请求信息只写在 begin，end 不重复。
+	for _, unwanted := range []string{"ip=", "method=", "uri=", "user="} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("end record should not carry %q: %s", unwanted, out)
+		}
+	}
 	// 旧实现会把整行包进 msg="..."，导致双重时间戳与转义引号。
 	if strings.Contains(out, "msg=") {
 		t.Errorf("log output should not wrap the record in msg=: %s", out)
+	}
+}
+
+// begin 输出源地址 + "方法=路径"，且为 info 级别（默认可见）。
+func TestAccessLogBeginRecord(t *testing.T) {
+	l := &accessLogger{}
+	req := newLogRequest(t, "GET", "/a/b.md?x=1")
+
+	out := captureLog(t, logs.LevelInfo, func() { l.begin(req, "abc12345") })
+	if out == "" {
+		t.Fatal("begin should be logged at info level by default")
+	}
+	for _, want := range []string{
+		"level=INF",
+		"trace=abc12345",
+		"caller=api-begin",
+		"ip=192.0.2.10",
+		"GET=/a/b.md?x=1",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("begin output missing %q: %s", want, out)
+		}
+	}
+	// 结果字段属于 end。
+	for _, unwanted := range []string{"status=", "size=", "dur="} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("begin record should not carry %q: %s", unwanted, out)
+		}
+	}
+}
+
+// 方法作为字段名，不同请求方法各自成字段。
+func TestAccessLogBeginMethodAsKey(t *testing.T) {
+	l := &accessLogger{}
+	out := captureLog(t, logs.LevelInfo, func() {
+		l.begin(newLogRequest(t, "DELETE", "/gone.txt"), "del12345")
+	})
+	if !strings.Contains(out, "DELETE=/gone.txt") {
+		t.Errorf("expected DELETE=<uri> field: %s", out)
 	}
 }
 
@@ -66,7 +108,7 @@ func TestAccessLogRecord(t *testing.T) {
 func TestAccessLogErrorField(t *testing.T) {
 	l := &accessLogger{}
 	out := captureLog(t, logs.LevelInfo, func() {
-		l.end(newLogRequest(t, "GET", "/x"), "abc12345", http.StatusInternalServerError, 0, time.Millisecond, "boom")
+		l.end("abc12345", http.StatusInternalServerError, 0, time.Millisecond, "boom")
 	})
 	if !strings.Contains(out, "level=ERR") {
 		t.Errorf("expected error level: %s", out)
@@ -76,39 +118,18 @@ func TestAccessLogErrorField(t *testing.T) {
 	}
 }
 
-// api-begin 只在 debug 级别出现，并与 api-end 共享同一个 trace。
-func TestAccessLogBeginIsDebug(t *testing.T) {
-	l := &accessLogger{}
-	req := newLogRequest(t, "POST", "/up")
-
-	quiet := captureLog(t, logs.LevelInfo, func() { l.begin(req, "abc12345") })
-	if quiet != "" {
-		t.Errorf("begin should be silent at info level, got: %s", quiet)
-	}
-
-	loud := captureLog(t, logs.LevelDebug, func() { l.begin(req, "abc12345") })
-	if !strings.Contains(loud, "caller=api-begin") || !strings.Contains(loud, "trace=abc12345") {
-		t.Errorf("unexpected begin record: %s", loud)
-	}
-	if strings.Contains(loud, "status=") {
-		t.Errorf("begin record should not carry status: %s", loud)
-	}
-}
-
-// 带认证信息的请求会把用户名记进 user 字段，密码不会出现。
-func TestAccessLogUserField(t *testing.T) {
+// 带认证信息的请求不会把密码写进日志。
+func TestAccessLogNoCredentials(t *testing.T) {
 	l := &accessLogger{}
 	req := newLogRequest(t, "GET", "/private")
 	req.SetBasicAuth("alice", "secret")
 
-	out := captureLog(t, logs.LevelInfo, func() {
-		l.end(req, "abc12345", http.StatusOK, 1, time.Millisecond, "")
-	})
-	if !strings.Contains(out, "user=alice") {
-		t.Errorf("expected user field: %s", out)
+	out := captureLog(t, logs.LevelInfo, func() { l.begin(req, "abc12345") })
+	if !strings.Contains(out, "caller=api-begin") {
+		t.Fatalf("expected a begin record: %s", out)
 	}
-	if strings.Contains(out, "secret") {
-		t.Errorf("password leaked into log: %s", out)
+	if strings.Contains(out, "secret") || strings.Contains(out, "alice") {
+		t.Errorf("credentials leaked into log: %s", out)
 	}
 }
 

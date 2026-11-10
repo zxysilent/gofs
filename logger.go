@@ -17,25 +17,28 @@ import (
 //
 //	time=2026-11-10T13:04:28.044 level=INF msg="2026-11-10T13:04:28+08:00 INFO - 2.0.0.208 \"GET /a.md\" 200"
 //
-// 现在每个请求输出一行（--log-level debug 时前面多一行 api-begin）：
+// 现在每个请求输出两行，共享同一个 trace：
 //
-//	time=2026-11-10T13:04:28.044 level=INF trace=x48572hm caller=api-end ip=127.0.0.1 method=GET uri=/a.md status=200 size=260 dur=824.084µs
+//	time=... level=INF trace=x48572hm caller=api-begin ip=127.0.0.1 GET=/a.md?x=1
+//	time=... level=INF trace=x48572hm caller=api-end status=200 size=260 dur=824.084µs
 //
 // 字段含义：
 //
-//	trace   本次请求的 id，同时通过响应头 X-Request-ID 返回，便于对照
-//	caller  api-begin / api-end，同一次请求的两行共享 trace
-//	ip      客户端地址
-//	method  HTTP 方法
-//	uri     请求路径与查询串（已解码、已剔除控制字符）
-//	status  响应状态码
-//	size    响应体字节数
-//	dur     处理耗时
-//	err     仅出错时出现，错误信息单独成字段
+//	trace       本次请求的 id，同时通过响应头 X-Request-ID 返回，便于对照
+//	caller      api-begin / api-end，同一次请求的两行共享 trace
+//	ip          客户端地址（仅 begin）
+//	<METHOD>    请求方法作为字段名，值是路径与查询串，例如 GET=/a.md?x=1（仅 begin）
+//	status      响应状态码（仅 end）
+//	size        响应体字节数（仅 end）
+//	dur         处理耗时（仅 end）
+//	err         仅出错时出现，错误信息单独成字段
+//
+// 请求信息只写在 begin，结果只写在 end：两行通过 trace 关联，
+// 各自只带自己的字段，不重复。
 //
 // 静态资源（内置前端产物）不记录访问日志。
 
-// accessLogger 为每个请求输出一条访问记录；nil 表示关闭（测试用）。
+// accessLogger 为每个请求输出访问记录；nil 表示关闭（测试用）。
 type accessLogger struct{}
 
 const (
@@ -43,28 +46,21 @@ const (
 	callerEnd   = "api-end"
 )
 
-// begin 在请求开始时输出一条 debug 记录。默认级别为 info，因此只有
-// --log-level debug 时才可见；它与对应的 end 记录共享同一个 trace。
+// begin 在请求开始时输出请求信息：来源地址，以及"方法=路径"。
+// 方法作为字段名（GET=/a.md），和常见的结构化访问日志保持一致。
 func (l *accessLogger) begin(r *http.Request, trace string) {
 	logs.With(trace).
 		Str("caller", callerBegin).
 		Str("ip", remoteIP(r.RemoteAddr)).
-		Str("method", r.Method).
-		Str("uri", logURI(r)).
-		Debug()
+		Str(r.Method, logURI(r)).
+		Info()
 }
 
-// end 输出请求完成记录。errMsg 非空表示出错：以 error 级别记录，
-// 错误信息放在独立的 err 字段里。
-func (l *accessLogger) end(r *http.Request, trace string, status int, size int64, dur time.Duration, errMsg string) {
+// end 输出请求结果：状态码、响应体大小、耗时。errMsg 非空表示出错，
+// 以 error 级别记录，错误信息放在独立的 err 字段里。
+func (l *accessLogger) end(trace string, status int, size int64, dur time.Duration, errMsg string) {
 	f := logs.With(trace).
 		Str("caller", callerEnd).
-		Str("ip", remoteIP(r.RemoteAddr))
-	if user := getAuthUser(r.Header.Get("Authorization")); user != "" {
-		f = f.Str("user", user)
-	}
-	f = f.Str("method", r.Method).
-		Str("uri", logURI(r)).
 		Int("status", status).
 		Int64("size", size).
 		Dur("dur", dur)
