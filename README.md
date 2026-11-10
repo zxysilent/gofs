@@ -33,7 +33,7 @@ logging package.
   images and links resolved relative to the document. Both renderers are
   lazy-loaded only when the document actually needs them, and diagrams are
   re-themed when you switch light/dark
-- In-place text editing with `Ctrl/Cmd+S` to save and a Markdown preview toggle
+- In-place text editing with a Markdown preview toggle
 - Live upload progress, zip download of any folder, recursive search
 - Drag the divider to resize the sidebar; long names truncate with an ellipsis
 

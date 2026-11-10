@@ -149,14 +149,6 @@ async function save() {
   }
 }
 
-// Ctrl/Cmd+S 保存
-function onEditorKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault()
-    save()
-  }
-}
-
 async function onClose() {
   if (dirty.value) {
     const ok = await showConfirmDialog(t('dialog.discard'), t('dialog.discardCloseMsg'))
@@ -212,7 +204,7 @@ onMounted(async () => {
 
 <template>
   <div class="preview-overlay" :class="{ 'preview-overlay-full': fullscreen }" @click.self="onClose">
-    <div class="preview-modal" :class="{ 'preview-modal-editing': editing, 'preview-modal-full': fullscreen }">
+    <div class="preview-modal" :class="{ 'preview-modal-full': fullscreen }">
       <div class="preview-head">
         <span class="preview-title" :title="item.name">{{ item.name }}</span>
         <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
@@ -263,7 +255,6 @@ onMounted(async () => {
             v-model="editContent"
             class="editor-textarea"
             spellcheck="false"
-            @keydown="onEditorKeydown"
           ></textarea>
         </template>
         <div v-else ref="bodyRef" v-html="bodyHtml"></div>
