@@ -39,7 +39,7 @@ logging package.
 - Account-based access control: Basic and Digest auth, sha512-crypt passwords
   (`$6$...`), per-path read/write rules and tokens
 - HTTPS via `--tls-cert` / `--tls-key`, unix socket via `--bind /path.sock`
-- Health check at `__dufs__/health`
+- Health check at `/gofs-healthz`
 - **Two built-in virtual Markdown documents** (see below), generated per
   request and available in Chinese and English
 

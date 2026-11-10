@@ -22,11 +22,11 @@ import (
 )
 
 const (
-	version                = "0.46.0"
+	version                = "0.1.0"
 	indexName              = "index.html"
 	resumableUploadMinSize = 20971520 // 20M
-	healthCheckPath        = "__dufs__/health"
-	maxSubpathsCount       = 1000
+	healthCheckPath        = "gofs-healthz"
+	maxSubpathsCount       = 1024
 )
 
 // Virtual Markdown documents are defined in docs.go (path constants, generators

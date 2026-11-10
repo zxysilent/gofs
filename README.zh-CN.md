@@ -31,7 +31,7 @@
 - 目录打包下载 `.zip`（`?zip`）、递归搜索（`?q=`）、SHA256（`?hash`）、在线编辑器（`?edit` / `?view`）
 - 基于账号的访问控制：Basic / Digest 认证、sha512-crypt 密码（`$6$...`）、按路径的读写权限与令牌
 - 通过 `--tls-cert` / `--tls-key` 启用 HTTPS，通过 `--bind /path.sock` 使用 unix socket
-- 健康检查：`__dufs__/health`
+- 健康检查：`/gofs-healthz`
 - **两个内置虚拟 Markdown 文档**（见下文），按请求动态生成，且支持中英双语
 
 ## 界面截图

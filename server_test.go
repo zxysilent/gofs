@@ -51,7 +51,7 @@ func TestServerReadOps(t *testing.T) {
 	defer ts.Close()
 
 	// health
-	resp := get(t, ts.URL+"/__dufs__/health")
+	resp := get(t, ts.URL+"/"+healthCheckPath)
 	if resp != `{"status":"OK"}` {
 		t.Errorf("health = %q", resp)
 	}
