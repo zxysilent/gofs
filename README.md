@@ -26,7 +26,8 @@ logging package.
   their position, entirely client-side
 - **Light / dark / auto theme** and **Chinese / English UI**, both persisted
   in the browser
-- In-browser preview: images, video, audio, PDF, Markdown, code, JSON, text
+- In-browser preview: images, video, audio, PDF, Markdown, code, JSON, text;
+  the preview window can be enlarged to fill the browser viewport
 - Markdown rendering with GFM tables, **math via KaTeX** (`$...$`, `$$...$$`,
   `\(...\)`, `\[...\]`), **Mermaid diagrams** (```` ```mermaid ```` fences),
   images and links resolved relative to the document. Both renderers are

@@ -50,6 +50,14 @@ const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: d
 const bodyRef = ref<HTMLElement | null>(null)
 const mdPreviewRef = ref<HTMLElement | null>(null)
 
+// 网页内全屏：把弹窗铺满整个视口，不改动浏览器窗口本身（不进 Fullscreen API），
+// 所以地址栏、标签页都在，切走后回来也不会被浏览器卡在全屏状态。
+const fullscreen = ref(false)
+
+function toggleFullscreen() {
+  fullscreen.value = !fullscreen.value
+}
+
 // 内容变化后把公式/图表占位节点替换为真实渲染结果（KaTeX 与 Mermaid 均按需加载）。
 // 两个容器互斥：只读预览用 bodyRef，编辑态预览用 mdPreviewRef。
 watch(
@@ -203,8 +211,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="preview-overlay" @click.self="onClose">
-    <div class="preview-modal" :class="{ 'preview-modal-editing': editing }">
+  <div class="preview-overlay" :class="{ 'preview-overlay-full': fullscreen }" @click.self="onClose">
+    <div class="preview-modal" :class="{ 'preview-modal-editing': editing, 'preview-modal-full': fullscreen }">
       <div class="preview-head">
         <span class="preview-title" :title="item.name">{{ item.name }}</span>
         <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
@@ -228,6 +236,14 @@ onMounted(async () => {
             </button>
             <button class="btn" @click="cancelEdit">{{ t('common.cancel') }}</button>
           </template>
+          <button
+            class="btn"
+            :title="fullscreen ? t('preview.exitFullscreenTitle') : t('preview.fullscreenTitle')"
+            @click="toggleFullscreen"
+          >
+            <span v-html="fullscreen ? ICONS.compress : ICONS.expand"></span
+            >{{ fullscreen ? t('preview.exitFullscreen') : t('preview.fullscreen') }}
+          </button>
           <button class="icon-btn" :title="t('common.close')" @click="onClose" v-html="ICONS.close"></button>
         </div>
       </div>
