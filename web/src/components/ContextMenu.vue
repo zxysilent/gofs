@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // 通用浮动右键菜单：按视口边界自适应定位，支持键盘与点击外部关闭。
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ICONS } from '../icons'
+import { ICONS } from '../utils/icons'
 
 export interface MenuItem {
   key: string

@@ -7,7 +7,7 @@
     <title>gofs</title>
     <script>
       // Apply the saved theme before first paint to avoid a flash of the
-      // wrong theme (the Vue app takes over afterwards, see src/theme.ts).
+      // wrong theme (the Vue app takes over afterwards, see src/utils/theme.ts).
       (function () {
         try {
           var mode = localStorage.getItem('gofs.theme') || 'auto'

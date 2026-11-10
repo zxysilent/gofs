@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import type { IndexData, ListParams, PathItem, SortKey, SortOrder, UploadTask } from './types'
-import { baseName, joinRelPath, normalizeRelPath, parentRelPath, isDir, HELP_ROUTE, isHelpRoute } from './types'
-import {
-  initialData, listDir, absUrl, dirUrl, parseHash, pathFromLocation, uploadFile,
-  deletePath, mkdir, createFile, movePath,
-} from './api'
-import { showInputDialog, showConfirmDialog, showToast, copyText } from './dialog'
-import { t, locale } from './i18n'
+import { baseName, joinRelPath, normalizeRelPath, parentRelPath, isDir } from './utils/paths'
+import { initialData, listDir, absUrl, uploadFile, deletePath, mkdir, createFile, movePath } from './api'
+import { HELP_ROUTE, isHelpRoute, dirUrl, parseHash, pathFromLocation } from './api/router'
+import { showInputDialog, showConfirmDialog, showToast, copyText } from './utils/dialog'
+import { t, locale } from './locales'
 import Sidebar from './components/Sidebar.vue'
 import Toolbar from './components/Toolbar.vue'
 import FileList from './components/FileList.vue'

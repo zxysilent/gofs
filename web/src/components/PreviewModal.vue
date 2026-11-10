@@ -1,16 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { PathItem } from '../types'
-import { parentRelPath } from '../types'
+import { parentRelPath } from '../utils/paths'
 import { fileKind, formatSize, formatTime } from '../utils'
 import { absUrl, readText, fileHash, saveFile } from '../api'
-import { renderMarkdown } from '../markdown'
-import { renderMath } from '../math'
-import { renderDiagrams } from '../diagram'
-import { ICONS } from '../icons'
-import { showToast, showConfirmDialog, copyText } from '../dialog'
-import { t } from '../i18n'
-import { resolvedTheme } from '../theme'
+import { renderMarkdown } from '../lib/markdown'
+import { renderMath } from '../lib/math'
+import { renderDiagrams } from '../lib/diagram'
+import { ICONS } from '../utils/icons'
+import { showToast, showConfirmDialog, copyText } from '../utils/dialog'
+import { t } from '../locales'
+import { resolvedTheme } from '../utils/theme'
 
 const props = defineProps<{ item: PathItem; path: string; allowUpload: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()

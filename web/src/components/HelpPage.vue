@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { absUrl, readText } from '../api'
-import { ICONS } from '../icons'
-import { copyText, showToast } from '../dialog'
-import { t } from '../i18n'
+import { ICONS } from '../utils/icons'
+import { copyText, showToast } from '../utils/dialog'
+import { t } from '../locales'
 import { PROJECT_URL } from '../utils'
 
 const emit = defineEmits<{ (e: 'back'): void }>()

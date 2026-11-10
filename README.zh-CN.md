@@ -320,20 +320,24 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 
 ## 目录结构
 
-| 文件 | 用途 |
+| 路径 | 用途 |
 |------|------|
 | `main.go` | 入口、监听设置、信号处理 |
-| `args.go` | 命令行 / 环境变量 / 配置文件解析 |
-| `server.go` | HTTP + WebDAV 请求处理、内嵌资源服务 |
-| `docs.go` | 内置虚拟 Markdown 文档（中英双语） |
-| `auth.go` | 访问控制、Basic/Digest 认证、sha512-crypt |
-| `logger.go` | 结构化访问日志（固定字段，按请求追踪 trace） |
-| `utils.go` | URI 编码、glob、range 解析、内容类型 |
-| `noscript.go` | 面向文本客户端的目录列表 |
+| `embed.go` | `//go:embed web/dist`，必须与 `web/` 同级，所以留在根目录 |
+| `internal/config/` | 命令行 / 环境变量 / 配置文件解析（`Args`、帮助、补全） |
+| `internal/server/` | HTTP + WebDAV 请求处理、目录列表、打包下载、虚拟文档 |
+| `internal/auth/` | 访问规则、Basic/Digest 认证、令牌、sha512-crypt |
+| `internal/logx/` | 结构化访问日志（固定字段，按请求追踪 trace） |
+| `internal/fsutil/` | 共享的小文件系统探测函数 |
+| `internal/urlutil/` | HTTP 各层共用的百分号编码工具 |
 | `web/` | Vue 3 + TypeScript SPA 源码（Vite 构建） |
-| `web/src/markdown.ts` | Markdown 解析（表格、列表、公式/图表占位） |
-| `web/src/math.ts` | KaTeX 按需加载与公式排版 |
-| `web/src/diagram.ts` | Mermaid 按需加载、图表渲染与主题重绘 |
+| `web/src/api/` | 服务端 API 客户端与 History API 路由 |
+| `web/src/components/` | Vue 组件（目录树、文件列表、预览弹窗等） |
+| `web/src/lib/` | Markdown 解析、KaTeX 与 Mermaid 渲染 |
+| `web/src/locales/` | 国际化文案与语言状态 |
+| `web/src/types/` | 服务端 DTO 类型与模块声明 |
+| `web/src/utils/` | 格式化、对话框、图标、主题、路径工具 |
+| `web/src/styles/` | 样式表 |
 | `web/scripts/` | 构建后处理（剔除无用字体格式） |
 | `web/dist/` | 构建后的前端产物，通过 `go:embed` 内嵌进二进制 |
 | `install.sh` | 发布版安装脚本（一行命令安装） |

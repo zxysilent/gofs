@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -13,30 +14,36 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zxysilent/gofs/internal/config"
+	"github.com/zxysilent/gofs/internal/server"
 	"github.com/zxysilent/logs"
 )
 
+// version is a variable rather than a constant so release builds can inject
+// the tag at link time: -ldflags "-X main.version=$(git describe --tags)".
+var version = "0.1.3-dev"
+
 func main() {
-	res, err := parseArgs(os.Args[1:])
+	res, err := config.ParseArgs(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	if res.help {
+	if res.Help {
 		printHelp()
 		return
 	}
-	if res.version {
+	if res.Version {
 		fmt.Printf("gofs %s\n", version)
 		return
 	}
-	if res.completions != "" {
-		printCompletions(res.completions)
+	if res.Completions != "" {
+		printCompletions(res.Completions)
 		return
 	}
 
-	args := res.args
-	initLogger(args.logFile, args.logLevel)
+	args := res.Args
+	initLogger(args.LogFile, args.LogLevel)
 
 	serve(args)
 }
@@ -54,24 +61,29 @@ func initLogger(logFile, logLevel string) {
 	}
 }
 
-func serve(args Args) {
+func serve(args config.Args) {
 	var running atomic.Bool
 	running.Store(true)
 
-	server, err := newServer(args, &running)
+	dist, err := fs.Sub(distFS, "web/dist")
+	if err != nil {
+		logs.Errorf("embedded frontend: %v", err)
+		os.Exit(1)
+	}
+	handler, err := server.New(args, dist, version, &running)
 	if err != nil {
 		logs.Errorf("%v", err)
 		os.Exit(1)
 	}
 
 	var servers []*http.Server
-	for _, addr := range args.addrs {
-		l, err := listen(addr, args.port)
+	for _, addr := range args.Addrs {
+		l, err := listen(addr, args.Port)
 		if err != nil {
-			logs.Errorf("failed to bind `%s`: %v", addr.addr, err)
+			logs.Errorf("failed to bind `%s`: %v", addr.Addr, err)
 			os.Exit(1)
 		}
-		srv := &http.Server{Handler: server}
+		srv := &http.Server{Handler: handler}
 		servers = append(servers, srv)
 		go func(l net.Listener, srv *http.Server) {
 			if err := srv.Serve(l); err != nil && err != http.ErrServerClosed {
@@ -94,17 +106,17 @@ func serve(args Args) {
 	}
 }
 
-func listen(addr BindAddr, port int) (net.Listener, error) {
-	if addr.isIP {
-		ip := net.ParseIP(addr.addr)
+func listen(addr config.BindAddr, port int) (net.Listener, error) {
+	if addr.IsIP {
+		ip := net.ParseIP(addr.Addr)
 		network := "tcp6"
 		if ip.To4() != nil {
 			network = "tcp4"
 		}
-		return net.Listen(network, net.JoinHostPort(addr.addr, strconv.Itoa(port)))
+		return net.Listen(network, net.JoinHostPort(addr.Addr, strconv.Itoa(port)))
 	}
 	// unix socket
-	path := addr.addr
+	path := addr.Addr
 	if strings.HasPrefix(path, "@") {
 		// abstract socket
 		return net.Listen("unix", "\x00"+path[1:])
@@ -113,21 +125,21 @@ func listen(addr BindAddr, port int) (net.Listener, error) {
 	return net.Listen("unix", path)
 }
 
-func printListening(args Args) string {
+func printListening(args config.Args) string {
 	var urls []string
-	for _, addr := range args.addrs {
-		if addr.isIP {
-			host := addr.addr
+	for _, addr := range args.Addrs {
+		if addr.IsIP {
+			host := addr.Addr
 			if strings.Contains(host, ":") {
 				host = "[" + host + "]"
 			}
 			protocol := "http"
-			if args.tlsCert != "" {
+			if args.TLSCert != "" {
 				protocol = "https"
 			}
-			urls = append(urls, fmt.Sprintf("%s://%s:%d%s", protocol, host, args.port, args.uriPrefix))
+			urls = append(urls, fmt.Sprintf("%s://%s:%d%s", protocol, host, args.Port, args.URIPrefix))
 		} else {
-			urls = append(urls, addr.addr)
+			urls = append(urls, addr.Addr)
 		}
 	}
 	if len(urls) == 1 {

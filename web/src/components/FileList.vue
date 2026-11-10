@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import type { PathItem } from '../types'
-import { isDir } from '../types'
+import { isDir } from '../utils/paths'
 import { fileKind, formatSize, formatDirSize, formatTime } from '../utils'
-import { ICONS } from '../icons'
-import { t } from '../i18n'
+import { ICONS } from '../utils/icons'
+import { t } from '../locales'
 
 defineProps<{
   items: PathItem[]

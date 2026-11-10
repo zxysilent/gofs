@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TreeNode } from '../types'
-import { ICONS } from '../icons'
-import { t } from '../i18n'
+import { ICONS } from '../utils/icons'
+import { t } from '../locales'
 
 const props = defineProps<{
   node: TreeNode

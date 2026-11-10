@@ -10,8 +10,8 @@
 /web/node_modules/
 
 # NOTE: /web/dist MUST be committed.
-# server.go embeds it via //go:embed web/dist, so a missing dist directory
-# makes `go build` fail (mustAsset panics when index.html is absent).
+# embed.go embeds it via //go:embed web/dist, so a missing dist directory
+# makes `go build` fail (the server refuses to start without index.html).
 
 # ---- Logs and temporary files ----
 *.log

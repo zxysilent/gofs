@@ -342,20 +342,24 @@ full parameter table.
 
 ## Layout
 
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
 | `main.go` | entry point, listener setup, signal handling |
-| `args.go` | CLI / env / config parsing |
-| `server.go` | HTTP + WebDAV request handling, embedded asset serving |
-| `docs.go` | built-in virtual Markdown documents (bilingual) |
-| `auth.go` | access control, Basic/Digest auth, sha512-crypt |
-| `logger.go` | structured access log (fixed fields, per-request trace) |
-| `utils.go` | URI encoding, glob, range parsing, content types |
-| `noscript.go` | text-client directory listing |
+| `embed.go` | `//go:embed web/dist` — must sit next to `web/`, so it stays at the root |
+| `internal/config/` | CLI / env / config-file parsing (`Args`, help, completions) |
+| `internal/server/` | HTTP + WebDAV handling, directory listing, zip, virtual docs |
+| `internal/auth/` | access rules, Basic/Digest auth, tokens, sha512-crypt |
+| `internal/logx/` | structured access log (fixed fields, per-request trace) |
+| `internal/fsutil/` | small shared filesystem probes |
+| `internal/urlutil/` | percent-encoding helpers shared by the HTTP layers |
 | `web/` | Vue 3 + TypeScript SPA source (Vite build) |
-| `web/src/markdown.ts` | Markdown parser (tables, lists, math/diagram placeholders) |
-| `web/src/math.ts` | KaTeX loading and math typesetting (lazy) |
-| `web/src/diagram.ts` | Mermaid loading, diagram rendering and theme re-render (lazy) |
+| `web/src/api/` | server API client and the History-API router |
+| `web/src/components/` | Vue components (sidebar tree, file list, preview modal, …) |
+| `web/src/lib/` | Markdown parser, KaTeX and Mermaid renderers |
+| `web/src/locales/` | i18n strings and locale state |
+| `web/src/types/` | server DTO types and ambient module declarations |
+| `web/src/utils/` | formatting, dialogs, icons, theme, path helpers |
+| `web/src/styles/` | stylesheet |
 | `web/scripts/` | post-build steps (drops unused font formats) |
 | `web/dist/` | built frontend, embedded into the binary with `go:embed` |
 | `install.sh` | release installer (one-line install) |

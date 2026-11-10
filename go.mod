@@ -1,4 +1,4 @@
-module gofs
+module github.com/zxysilent/gofs
 
 go 1.24
 

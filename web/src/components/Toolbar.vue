@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { SortKey, SortOrder } from '../types'
-import { ICONS } from '../icons'
-import { t } from '../i18n'
+import { ICONS } from '../utils/icons'
+import { t } from '../locales'
 
 const props = defineProps<{
   breadcrumbs: { name: string; path: string }[]
