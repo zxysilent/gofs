@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import type { PathItem, TreeNode } from '../types'
+import type { IndexData, PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../types'
 import { listDir, absUrl, readText } from '../api'
 import { ICONS } from '../icons'
@@ -9,6 +9,7 @@ import { locale, t, toggleLocale } from '../i18n'
 import { themeMode, cycleTheme } from '../theme'
 import { HELP_CONTENT } from '../help-content'
 import TreeNodeComp from './TreeNode.vue'
+import ContextMenu, { type MenuItem } from './ContextMenu.vue'
 
 const props = defineProps<{ currentPath: string }>()
 const emit = defineEmits<{
@@ -232,14 +233,14 @@ function dirsOf(items: PathItem[]): PathItem[] {
   return (items || []).filter((p) => p.path_type.endsWith('Dir'))
 }
 
-async function fetchDirItems(path: string): Promise<PathItem[]> {
-  const data = await listDir(path, { sort: 'name', order: 'asc', q: '' })
-  return data.paths || []
+async function fetchDir(path: string): Promise<IndexData> {
+  return listDir(path, { sort: 'name', order: 'asc', q: '' })
 }
 
 // 用服务端返回的条目刷新某个节点的子目录列表，并尽量复用已有节点
 // （保留已展开状态，避免刷新后整棵树塌陷）。
-function applyChildren(node: TreeNode, items: PathItem[]) {
+// 同时记录这个目录自身的写权限，右键菜单据此决定显示哪些条目。
+function applyChildren(node: TreeNode, items: PathItem[], perms?: IndexData) {
   const prev = new Map(node.children.map((c) => [c.path, c]))
   node.children = dirsOf(items).map((d) => {
     const path = normalizeRelPath(joinRelPath(node.path, d.name))
@@ -251,6 +252,10 @@ function applyChildren(node: TreeNode, items: PathItem[]) {
     return makeNode(path, d.name)
   })
   node.loaded = true
+  if (perms) {
+    node.canUpload = perms.allow_upload
+    node.canDelete = perms.allow_delete
+  }
 }
 
 // 首次需要时才加载某个节点的子目录。加载过程置 loading（折叠箭头位置显示
@@ -261,7 +266,8 @@ async function loadNode(node: TreeNode) {
   node.loading = true
   node.error = undefined
   try {
-    applyChildren(node, await fetchDirItems(node.path))
+    const data = await fetchDir(node.path)
+    applyChildren(node, data.paths || [], data)
   } catch (e) {
     node.error = e instanceof Error ? e.message : String(e)
   } finally {
@@ -271,11 +277,13 @@ async function loadNode(node: TreeNode) {
 
 async function loadRoot() {
   const prev = new Map(topNodes.map((n) => [n.path, n]))
-  const dirs = dirsOf(await fetchDirItems('/'))
+  const data = await fetchDir('/')
+  // 根目录自身的写权限：右键菜单作用于根上一级时使用（如"新建子目录"落在根）。
+  rootPerms.value = { upload: data.allow_upload, remove: data.allow_delete }
   topNodes.splice(
     0,
     topNodes.length,
-    ...dirs.map((d) => {
+    ...dirsOf(data.paths || []).map((d) => {
       const path = normalizeRelPath('/' + d.name)
       return prev.get(path) || makeNode(path, d.name)
     }),
@@ -501,6 +509,97 @@ async function rebuildTree() {
   await walkTo(props.currentPath)
 }
 
+/* ---------- 右键菜单 ---------- */
+
+// 根目录的写权限（根节点本身不对应树里的某一行）。
+const rootPerms = ref<{ upload: boolean; remove: boolean }>({ upload: false, remove: false })
+
+const menu = ref<{ open: boolean; x: number; y: number; node: TreeNode | null }>({
+  open: false,
+  x: 0,
+  y: 0,
+  node: null,
+})
+
+const menuItems = computed<MenuItem[]>(() => {
+  const node = menu.value.node
+  if (!node) return []
+  const canWrite = node.canUpload ?? rootPerms.value.upload
+  const canRemove = node.canDelete ?? rootPerms.value.remove
+  return [
+    {
+      key: 'new-folder',
+      label: t('menu.newFolder'),
+      icon: 'newFolder',
+      disabled: !canWrite,
+    },
+    { key: 'open-new', label: t('menu.openNewTab'), icon: 'external', dividerBefore: true },
+    { key: 'copy-link', label: t('menu.copyLink'), icon: 'link' },
+    { key: 'copy-rel-path', label: t('menu.copyRelPath'), icon: 'copy' },
+    { key: 'reload', label: t('common.refresh'), icon: 'refresh', dividerBefore: true },
+    { key: 'rename', label: t('action.rename'), icon: 'rename', disabled: !canWrite },
+    { key: 'delete', label: t('action.delete'), icon: 'trash', danger: true, disabled: !canRemove },
+  ]
+})
+
+function openMenu(node: TreeNode, ev: MouseEvent) {
+  menu.value = { open: true, x: ev.clientX, y: ev.clientY, node }
+  focusedPath.value = node.path
+}
+
+function closeMenu() {
+  menu.value = { ...menu.value, open: false, node: null }
+}
+
+// 重新拉取单个目录的子目录列表（不重建整棵树，保留其他分支的展开状态）。
+async function reloadNode(node: TreeNode) {
+  node.loaded = false
+  node.error = undefined
+  await loadNode(node)
+  node.expanded = node.children.length > 0
+  saveExpanded()
+}
+
+function onMenuSelect(key: string) {
+  const node = menu.value.node
+  if (!node) return
+  closeMenu()
+  switch (key) {
+    case 'new-folder':
+      // 交给父组件弹窗并调用 mkdir，成功后重建树。
+      emit('action', { action: 'new-folder', path: node.path, name: node.name })
+      break
+    case 'open-new':
+      window.open(location.origin + absUrl(node.path), '_blank', 'noopener')
+      break
+    case 'copy-link':
+      void copyText(location.origin + absUrl(node.path)).then((ok) =>
+        showToast(
+          ok
+            ? t('toast.copyPath')
+            : t('toast.copyFailed', { text: location.origin + absUrl(node.path) }),
+          ok ? 'success' : 'error',
+        ),
+      )
+      break
+    case 'copy-rel-path':
+      void copyText(node.path).then((ok) =>
+        showToast(
+          ok ? t('toast.copyRelPath') : t('toast.copyFailed', { text: node.path }),
+          ok ? 'success' : 'error',
+        ),
+      )
+      break
+    case 'reload':
+      void reloadNode(node)
+      break
+    case 'rename':
+    case 'delete':
+      emit('action', { action: key, path: node.path, name: node.name })
+      break
+  }
+}
+
 defineExpose({ onNavigated, rebuildTree })
 
 onMounted(() => {
@@ -580,12 +679,21 @@ onMounted(() => {
           :focused-path="tabStopPath"
           @select="onSelect"
           @toggle="onToggle"
-          @action="emit('action', $event)"
           @focus="focusedPath = $event"
           @keydown="onTreeKeydown"
+          @menu="openMenu"
         />
       </ul>
     </div>
+    <!-- 右键菜单：整个侧栏共用一个实例，避免每行挂一份 -->
+    <ContextMenu
+      v-if="menu.open && menu.node"
+      :x="menu.x"
+      :y="menu.y"
+      :items="menuItems"
+      @select="onMenuSelect"
+      @close="closeMenu"
+    />
     <div class="sidebar-foot">
       <button class="help-btn" @click="showHelp = true">
         <span class="help-btn-icon" v-html="ICONS.info"></span>{{ t('sidebar.help') }}

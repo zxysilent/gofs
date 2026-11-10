@@ -33,6 +33,9 @@ export interface TreeNode {
   loading?: boolean
   /** 子目录加载失败的原始错误信息；存在时节点显示警示图标并可重试。 */
   error?: string
+  /** 该目录自身的写权限（来自加载它的 listDir 响应），决定右键菜单条目。 */
+  canUpload?: boolean
+  canDelete?: boolean
   children: TreeNode[]
 }
 

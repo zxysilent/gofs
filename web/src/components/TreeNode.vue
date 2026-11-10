@@ -12,9 +12,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'select', path: string): void
   (e: 'toggle', node: TreeNode): void
-  (e: 'action', payload: { action: string; path: string; name: string }): void
   (e: 'focus', path: string): void
   (e: 'keydown', ev: KeyboardEvent, node: TreeNode): void
+  (e: 'menu', node: TreeNode, ev: MouseEvent): void
 }>()
 
 // 只有"已加载且确实没有子目录"时才隐藏箭头；未加载过一律保留，
@@ -57,10 +57,21 @@ function onSelect() {
   emit('select', props.node.path)
 }
 
-function onAction(action: string, e: MouseEvent) {
+function onContextMenu(e: MouseEvent) {
   e.preventDefault()
   e.stopPropagation()
-  emit('action', { action, path: props.node.path, name: props.node.name })
+  emit('menu', props.node, e)
+}
+
+// 行内的 ⋯ 按钮：以按钮位置为锚点弹出同一个菜单。
+function onMore(e: MouseEvent) {
+  e.preventDefault()
+  e.stopPropagation()
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  emit('menu', props.node, {
+    clientX: r.left,
+    clientY: r.bottom + 2,
+  } as MouseEvent)
 }
 </script>
 
@@ -84,6 +95,7 @@ function onAction(action: string, e: MouseEvent) {
       @click="onSelect"
       @focus="emit('focus', node.path)"
       @keydown="emit('keydown', $event, node)"
+      @contextmenu="onContextMenu"
     >
       <span class="tree-toggle" @click="onToggle">
         <span v-if="node.loading" class="tree-spinner" v-html="ICONS.spinner"></span>
@@ -96,9 +108,12 @@ function onAction(action: string, e: MouseEvent) {
       <span class="tree-icon" v-html="icon"></span>
       <span class="tree-name">{{ node.name }}</span>
       <span class="tree-actions">
-        <button class="tree-action-btn" :title="t('action.rename')" @click="onAction('rename', $event)" v-html="ICONS.rename"></button>
-        <button class="tree-action-btn" :title="t('action.copyPath')" @click="onAction('copy-path', $event)" v-html="ICONS.copy"></button>
-        <button class="tree-action-btn danger" :title="t('action.delete')" @click="onAction('delete', $event)" v-html="ICONS.trash"></button>
+        <button
+          class="tree-action-btn"
+          :title="t('menu.more')"
+          @click="onMore"
+          v-html="ICONS.more"
+        ></button>
       </span>
     </div>
     <ul v-if="isOpen" class="tree-children" role="group">
@@ -110,9 +125,9 @@ function onAction(action: string, e: MouseEvent) {
         :focused-path="focusedPath"
         @select="emit('select', $event)"
         @toggle="emit('toggle', $event)"
-        @action="emit('action', $event)"
         @focus="emit('focus', $event)"
         @keydown="(ev: KeyboardEvent, n: TreeNode) => emit('keydown', ev, n)"
+        @menu="(n: TreeNode, e: MouseEvent) => emit('menu', n, e)"
       />
     </ul>
   </li>

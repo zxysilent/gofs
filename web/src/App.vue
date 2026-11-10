@@ -52,13 +52,9 @@ const breadcrumbs = computed(() => {
 
 const sidebarRef = ref<InstanceType<typeof Sidebar> | null>(null)
 
-// 目录树节点的操作按钮（hover 显示）
+// 目录树节点的右键菜单动作（复制链接/路径已在前端直接处理，不经过这里）。
 async function onTreeAction(payload: { action: string; path: string; name: string }) {
   const { action, path, name } = payload
-  if (action === 'copy-path') {
-    await copyAndToast(location.origin + absUrl(path), t('toast.copyPath'))
-    return
-  }
   if (action === 'rename') {
     const newName = await showInputDialog(t('dialog.rename'), t('dialog.renamePlaceholder'), name)
     if (!newName || newName === name) return
@@ -77,6 +73,16 @@ async function onTreeAction(payload: { action: string; path: string; name: strin
     await run(async () => {
       await deletePath(path)
       return t('toast.deleted', { name })
+    }, { rebuild: true })
+    return
+  }
+  // 在指定目录内新建子目录（右键菜单）。
+  if (action === 'new-folder') {
+    const newName = await showInputDialog(t('dialog.newFolder'), t('dialog.newFolderPlaceholder'), '')
+    if (!newName) return
+    await run(async () => {
+      await mkdir(joinRelPath(path, newName))
+      return t('toast.folderCreated', { name: newName })
     }, { rebuild: true })
   }
 }

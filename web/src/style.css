@@ -587,6 +587,95 @@ body {
   font-size: 12px;
 }
 
+/* ---------- 右键菜单 ---------- */
+.ctx-menu {
+  position: fixed;
+  z-index: 3000;
+  min-width: 184px;
+  padding: 5px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  outline: none;
+  animation: ctx-in 0.12s ease-out;
+}
+
+@keyframes ctx-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ctx-menu-item.active:not(.disabled) {
+  background: var(--bg-hover);
+}
+
+.ctx-menu-item.danger {
+  color: var(--danger);
+}
+
+.ctx-menu-item.danger.active:not(.disabled) {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.ctx-menu-item.disabled {
+  color: var(--text-secondary);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ctx-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.ctx-menu-icon svg {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
+.ctx-menu-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ctx-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 /* ---------- Main ---------- */
 .main {
   flex: 1;
@@ -1724,8 +1813,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -1736,19 +1825,21 @@ body {
 }
 
 .tree-action-btn:hover {
+  background: var(--bg-panel);
+  color: var(--text);
+}
+
+/* 菜单打开时按钮保持高亮，避免"点了没反应"的错觉 */
+.tree-action-btn.open,
+.tree-action-btn:active {
   background: var(--bg-active);
   color: var(--accent);
 }
 
-.tree-action-btn.danger:hover {
-  color: var(--danger-strong);
-}
-
-.tree-action-btn :deep(svg),
 .tree-action-btn svg {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
 }
 
 /* ---------- curl 使用手册独立页 ---------- */

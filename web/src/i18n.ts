@@ -44,6 +44,7 @@ const zh: Record<string, string> = {
 
   // toasts
   'toast.copyPath': '已复制完整路径',
+  'toast.copyRelPath': '已复制路径',
   'toast.copyCmd': '已复制命令',
   'toast.copyFailed': '复制失败，请手动复制: {text}',
   'toast.renamed': '已重命名为 "{name}"',
@@ -115,6 +116,13 @@ const zh: Record<string, string> = {
   'action.rename': '重命名',
   'action.delete': '删除',
 
+  // tree context menu
+  'menu.newFolder': '新建子目录',
+  'menu.openNewTab': '在新标签页打开',
+  'menu.copyLink': '复制链接',
+  'menu.copyRelPath': '复制路径',
+  'menu.more': '更多操作',
+
   // sidebar
   'sidebar.fileList': '文件列表',
   'sidebar.help': '使用说明',
@@ -183,6 +191,7 @@ const en: Record<string, string> = {
 
   // toasts
   'toast.copyPath': 'Full path copied',
+  'toast.copyRelPath': 'Path copied',
   'toast.copyCmd': 'Command copied',
   'toast.copyFailed': 'Copy failed, please copy manually: {text}',
   'toast.renamed': 'Renamed to "{name}"',
@@ -253,6 +262,13 @@ const en: Record<string, string> = {
   'action.openNew': 'Open in new tab',
   'action.rename': 'Rename',
   'action.delete': 'Delete',
+
+  // tree context menu
+  'menu.newFolder': 'New subfolder',
+  'menu.openNewTab': 'Open in new tab',
+  'menu.copyLink': 'Copy link',
+  'menu.copyRelPath': 'Copy path',
+  'menu.more': 'More actions',
 
   // sidebar
   'sidebar.fileList': 'Files',
