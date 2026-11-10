@@ -117,8 +117,8 @@ Options:
   -V, --version              Print version
 ```
 
-所有选项也可通过 `DUFS_*` 环境变量设置（例如 `DUFS_PORT=5000`、
-`DUFS_AUTH=admin:123@/:rw`），或用 `--config` 指定 YAML 配置文件。
+所有选项也可通过 `GOFS_*` 环境变量设置（例如 `GOFS_PORT=5000`、
+`GOFS_AUTH=admin:123@/:rw`），或用 `--config` 指定 YAML 配置文件。
 
 ### 示例
 

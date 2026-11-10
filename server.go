@@ -149,7 +149,7 @@ type Server struct {
 }
 
 func newServer(args Args, running *atomic.Bool) (*Server, error) {
-	assetsPrefix := fmt.Sprintf("__dufs_v%s__/", version)
+	assetsPrefix := fmt.Sprintf("__gofs_v%s__/", version)
 	var singleFileReqPaths []string
 	if args.pathIsFile {
 		singleFileReqPaths = []string{
@@ -1318,11 +1318,11 @@ func (s *Server) sendIndex(path string, paths []PathItem, exist bool, q url.Valu
 func (s *Server) authReject(w *responseWriter) {
 	setWebdavHeaders(w)
 	if s.args.auth.useHashedPassword {
-		w.Header().Set("WWW-Authenticate", `Basic realm="DUFS"`)
+		w.Header().Set("WWW-Authenticate", `Basic realm="GOFS"`)
 	} else {
 		nonce := createNonce()
-		w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Digest realm="DUFS", nonce="%s", qop="auth"`, nonce))
-		w.Header().Add("WWW-Authenticate", `Basic realm="DUFS"`)
+		w.Header().Add("WWW-Authenticate", fmt.Sprintf(`Digest realm="GOFS", nonce="%s", qop="auth"`, nonce))
+		w.Header().Add("WWW-Authenticate", `Basic realm="GOFS"`)
 	}
 	w.WriteHeader(http.StatusUnauthorized)
 }

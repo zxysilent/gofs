@@ -433,7 +433,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 	args := defaultArgs()
 
 	// config file
-	if configPath := firstNonEmpty(cliValue(cli, "config"), os.Getenv("DUFS_CONFIG")); configPath != "" {
+	if configPath := firstNonEmpty(cliValue(cli, "config"), os.Getenv("GOFS_CONFIG")); configPath != "" {
 		args, err = loadConfig(configPath)
 		if err != nil {
 			return nil, err
@@ -444,7 +444,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 	servePath := ""
 	if len(positional) > 0 {
 		servePath = positional[0]
-	} else if v := os.Getenv("DUFS_SERVE_PATH"); v != "" {
+	} else if v := os.Getenv("GOFS_SERVE_PATH"); v != "" {
 		servePath = v
 	} else {
 		servePath = args.servePath
@@ -456,7 +456,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 	args.servePath = sanitized
 
 	// port
-	if v := firstNonEmpty(cliValue(cli, "port"), os.Getenv("DUFS_PORT")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "port"), os.Getenv("GOFS_PORT")); v != "" {
 		if p, err := strconv.Atoi(v); err == nil {
 			args.port = p
 		} else {
@@ -470,7 +470,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else if v := os.Getenv("DUFS_BIND"); v != "" {
+	} else if v := os.Getenv("GOFS_BIND"); v != "" {
 		args.addrs, err = parseBindAddrs(strings.Split(v, ","))
 		if err != nil {
 			return nil, err
@@ -480,7 +480,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 	args.pathIsFile = isFile(args.servePath)
 
 	// path prefix
-	if v := firstNonEmpty(cliValue(cli, "path-prefix"), os.Getenv("DUFS_PATH_PREFIX")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "path-prefix"), os.Getenv("GOFS_PATH_PREFIX")); v != "" {
 		args.pathPrefix = v
 	}
 	args.pathPrefix = strings.Trim(args.pathPrefix, "/")
@@ -493,14 +493,14 @@ func parseArgs(argv []string) (*parseResult, error) {
 	// hidden
 	if v := multiValue(cli, "hidden", true); len(v) > 0 {
 		args.hidden = v
-	} else if v := os.Getenv("DUFS_HIDDEN"); v != "" {
+	} else if v := os.Getenv("GOFS_HIDDEN"); v != "" {
 		args.hidden = strings.Split(v, ",")
 	}
 
 	// auth
 	if v := multiValue(cli, "auth", false); len(v) > 0 {
 		args.auth = mustAccessControl(v)
-	} else if v := os.Getenv("DUFS_AUTH"); v != "" {
+	} else if v := os.Getenv("GOFS_AUTH"); v != "" {
 		args.auth = mustAccessControl(splitAuthEnv(v))
 	}
 
@@ -512,17 +512,17 @@ func parseArgs(argv []string) (*parseResult, error) {
 			*target = v != "false" && v != "0"
 		}
 	}
-	applyBool("allow-all", "DUFS_ALLOW_ALL", &args.allowAll)
-	applyBool("allow-upload", "DUFS_ALLOW_UPLOAD", &args.allowUpload)
-	applyBool("allow-delete", "DUFS_ALLOW_DELETE", &args.allowDelete)
-	applyBool("allow-search", "DUFS_ALLOW_SEARCH", &args.allowSearch)
-	applyBool("allow-symlink", "DUFS_ALLOW_SYMLINK", &args.allowSymlink)
-	applyBool("allow-archive", "DUFS_ALLOW_ARCHIVE", &args.allowArchive)
-	applyBool("allow-hash", "DUFS_ALLOW_HASH", &args.allowHash)
-	applyBool("enable-cors", "DUFS_ENABLE_CORS", &args.enableCors)
-	applyBool("render-index", "DUFS_RENDER_INDEX", &args.renderIndex)
-	applyBool("render-try-index", "DUFS_RENDER_TRY_INDEX", &args.renderTryIndex)
-	applyBool("render-spa", "DUFS_RENDER_SPA", &args.renderSpA)
+	applyBool("allow-all", "GOFS_ALLOW_ALL", &args.allowAll)
+	applyBool("allow-upload", "GOFS_ALLOW_UPLOAD", &args.allowUpload)
+	applyBool("allow-delete", "GOFS_ALLOW_DELETE", &args.allowDelete)
+	applyBool("allow-search", "GOFS_ALLOW_SEARCH", &args.allowSearch)
+	applyBool("allow-symlink", "GOFS_ALLOW_SYMLINK", &args.allowSymlink)
+	applyBool("allow-archive", "GOFS_ALLOW_ARCHIVE", &args.allowArchive)
+	applyBool("allow-hash", "GOFS_ALLOW_HASH", &args.allowHash)
+	applyBool("enable-cors", "GOFS_ENABLE_CORS", &args.enableCors)
+	applyBool("render-index", "GOFS_RENDER_INDEX", &args.renderIndex)
+	applyBool("render-try-index", "GOFS_RENDER_TRY_INDEX", &args.renderTryIndex)
+	applyBool("render-spa", "GOFS_RENDER_SPA", &args.renderSpA)
 
 	// allow-all implies all operation permissions
 	allowAll := args.allowAll
@@ -536,7 +536,7 @@ func parseArgs(argv []string) (*parseResult, error) {
 	}
 
 	// assets
-	if v := firstNonEmpty(cliValue(cli, "assets"), os.Getenv("DUFS_ASSETS")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "assets"), os.Getenv("GOFS_ASSETS")); v != "" {
 		sanitizedAssets, err := sanitizeAssetsPath(v)
 		if err != nil {
 			return nil, err
@@ -550,19 +550,19 @@ func parseArgs(argv []string) (*parseResult, error) {
 	}
 
 	// log format
-	if v := firstNonEmpty(cliValue(cli, "log-format"), os.Getenv("DUFS_LOG_FORMAT")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "log-format"), os.Getenv("GOFS_LOG_FORMAT")); v != "" {
 		args.httpLogger = parseHttpLogger(v)
 	} else if cliSet(cli, "log-format") {
 		args.httpLogger = parseHttpLogger("")
 	}
 
 	// log file
-	if v := firstNonEmpty(cliValue(cli, "log-file"), os.Getenv("DUFS_LOG_FILE")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "log-file"), os.Getenv("GOFS_LOG_FILE")); v != "" {
 		args.logFile = v
 	}
 
 	// compress
-	if v := firstNonEmpty(cliValue(cli, "compress"), os.Getenv("DUFS_COMPRESS")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "compress"), os.Getenv("GOFS_COMPRESS")); v != "" {
 		c, err := parseCompress(v)
 		if err != nil {
 			return nil, err
@@ -571,10 +571,10 @@ func parseArgs(argv []string) (*parseResult, error) {
 	}
 
 	// tls
-	if v := firstNonEmpty(cliValue(cli, "tls-cert"), os.Getenv("DUFS_TLS_CERT")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "tls-cert"), os.Getenv("GOFS_TLS_CERT")); v != "" {
 		args.tlsCert = v
 	}
-	if v := firstNonEmpty(cliValue(cli, "tls-key"), os.Getenv("DUFS_TLS_KEY")); v != "" {
+	if v := firstNonEmpty(cliValue(cli, "tls-key"), os.Getenv("GOFS_TLS_KEY")); v != "" {
 		args.tlsKey = v
 	}
 	if (args.tlsCert == "") != (args.tlsKey == "") {
@@ -627,7 +627,7 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-// splitAuthEnv splits DUFS_AUTH on '|' the same way multiple -a rules are.
+// splitAuthEnv splits GOFS_AUTH on '|' the same way multiple -a rules are.
 func splitAuthEnv(v string) []string {
 	return splitRules([]string{v})
 }

@@ -139,7 +139,7 @@ func printListening(args Args) string {
 }
 
 func printHelp() {
-	fmt.Print(`gofs is a distinctive utility file server - https://github.com/sigoden/dufs
+	fmt.Print(`gofs is a distinctive utility file server.
 
 Usage: gofs [OPTIONS] [serve-path]
 

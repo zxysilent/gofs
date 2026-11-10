@@ -26,8 +26,8 @@ func unixNowMs() int64 {
 }
 
 // percentEncode percent-encodes every character except the unreserved set
-// (A-Za-z0-9 -_.~), matching the Rust `urlencoding::encode` behaviour used by
-// dufs. Each path segment is encoded independently before being joined.
+// (A-Za-z0-9 -_.~). Each path segment is encoded independently before being
+// joined.
 func percentEncode(s string) string {
 	const hexDigits = "0123456789ABCDEF"
 	var b strings.Builder

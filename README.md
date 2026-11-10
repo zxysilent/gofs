@@ -128,8 +128,8 @@ Options:
   -V, --version              Print version
 ```
 
-Options can also be set through `DUFS_*` environment variables (for example
-`DUFS_PORT=5000`, `DUFS_AUTH=admin:123@/:rw`) or a YAML config file via
+Options can also be set through `GOFS_*` environment variables (for example
+`GOFS_PORT=5000`, `GOFS_AUTH=admin:123@/:rw`) or a YAML config file via
 `--config`.
 
 ### Examples

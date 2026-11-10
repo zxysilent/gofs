@@ -6,7 +6,7 @@ import (
 )
 
 func TestSha512Crypt(t *testing.T) {
-	// Known vector from the dufs README (password "123456").
+	// Known sha512-crypt vector (password "123456").
 	stored := "$6$tWMB51u6Kb2ui3wd$5gVHP92V9kZcMwQeKTjyTRgySsYJu471Jb1I6iHQ8iZ6s07GgCIO69KcPBRuwPE5tDq05xMAzye0NxVKuJdYs/"
 	if !verifySha512Crypt("123456", stored) {
 		t.Fatalf("sha512 crypt verification failed for %q", "123456")
@@ -37,15 +37,15 @@ func TestNonceRoundTrip(t *testing.T) {
 
 func TestDigestAuth(t *testing.T) {
 	// Manually construct a digest Authorization header and verify checkAuth.
-	// HA1 = md5("admin:DUFS:123"), nonce valid, qop=auth.
+	// HA1 = md5("admin:GOFS:123"), nonce valid, qop=auth.
 	nonce := createNonce()
 	uri := "/secret.txt"
-	ha1 := md5Hex("admin:DUFS:123")
+	ha1 := md5Hex("admin:" + realm + ":123")
 	ha2 := md5Hex("GET:" + uri)
 	cnonce := "0a4f113b"
 	nc := "00000001"
 	response := md5Hex(ha1 + ":" + nonce + ":" + nc + ":" + cnonce + ":auth:" + ha2)
-	header := `Digest username="admin", realm="DUFS", nonce="` + nonce + `", uri="` + uri + `", qop=auth, nc=` + nc + `, cnonce="` + cnonce + `", response="` + response + `"`
+	header := `Digest username="admin", realm="` + realm + `", nonce="` + nonce + `", uri="` + uri + `", qop=auth, nc=` + nc + `, cnonce="` + cnonce + `", response="` + response + `"`
 	if !checkAuth(header, "GET", "admin", "123") {
 		t.Fatalf("digest auth should succeed")
 	}

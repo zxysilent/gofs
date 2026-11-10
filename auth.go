@@ -19,8 +19,8 @@ import (
 	"time"
 )
 
-// nonceStarHash is the md5 state prefix used to build digest-auth nonces.
-// It mirrors dufs's lazy_static NONCESTARTHASH (uuid + pid).
+// nonceStarHash is the md5 state prefix used to build digest-auth nonces
+// (derived from a random seed plus the process id).
 var nonceStarHash = computeNonceStar()
 
 func computeNonceStar() []byte {
@@ -38,7 +38,7 @@ func computeNonceStar() []byte {
 }
 
 const (
-	realm             = "DUFS"
+	realm             = "GOFS"
 	digestAuthTimeout = 60 * 60 * 24 * 7 // 7 days
 	tokenExpiration   = 1000 * 60 * 60 * 24 * 3
 	tokenSigLen       = ed25519.SignatureSize

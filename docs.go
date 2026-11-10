@@ -145,7 +145,7 @@ func genReadmeDocZH(s *Server, base string) string {
 	d.line("程序接口手册：" + base + "/" + agentDocPath)
 	d.line("English version: " + base + "/" + readmeDocPath + "?lang=en")
 	d.blank()
-	d.line("gofs 是 dufs 的 Go 重实现：单二进制文件服务器，支持网页浏览、上传下载、")
+	d.line("gofs 是单二进制的 Go 文件服务器：支持网页浏览、上传下载、")
 	d.line("在线预览与编辑、打包下载、搜索、WebDAV 以及 curl 调用。")
 
 	d.h(2, "Web 界面")
@@ -225,9 +225,9 @@ func genReadmeDocEN(s *Server, base string) string {
 	d.line("API manual: " + base + "/" + agentDocPath)
 	d.line("Chinese version: " + base + "/" + readmeDocPath + "?lang=zh")
 	d.blank()
-	d.line("gofs is a Go reimplementation of dufs: a single-binary file server with")
-	d.line("a web UI, uploads and downloads, in-browser preview and editing,")
-	d.line("zip download, search, WebDAV and a curl-friendly API.")
+	d.line("gofs is a single-binary Go file server with a web UI, uploads and")
+	d.line("downloads, in-browser preview and editing, zip download, search,")
+	d.line("WebDAV and a curl-friendly API.")
 
 	d.h(2, "Web interface")
 	d.h(3, "Browsing and navigation")
