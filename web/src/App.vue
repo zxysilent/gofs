@@ -7,6 +7,7 @@ import {
   deletePath, mkdir, createFile, movePath,
 } from './api'
 import { showInputDialog, showConfirmDialog, showToast, copyText } from './dialog'
+import { t, locale } from './i18n'
 import Sidebar from './components/Sidebar.vue'
 import Toolbar from './components/Toolbar.vue'
 import FileList from './components/FileList.vue'
@@ -37,8 +38,10 @@ const items = computed(() => data.value.paths || [])
 
 const breadcrumbs = computed(() => {
   const p = relPath.value
-  if (p === '/') return [{ name: '根目录', path: '/' }]
-  const crumbs = [{ name: '根目录', path: '/' }]
+  // 读取 locale 让面包屑在切换语言时重新计算
+  void locale.value
+  if (p === '/') return [{ name: t('app.root'), path: '/' }]
+  const crumbs = [{ name: t('app.root'), path: '/' }]
   let acc = ''
   for (const part of p.split('/').filter(Boolean)) {
     acc = joinRelPath(acc || '/', part)
@@ -53,24 +56,27 @@ const sidebarRef = ref<InstanceType<typeof Sidebar> | null>(null)
 async function onTreeAction(payload: { action: string; path: string; name: string }) {
   const { action, path, name } = payload
   if (action === 'copy-path') {
-    await copyAndToast(location.origin + absUrl(path), '已复制完整路径')
+    await copyAndToast(location.origin + absUrl(path), t('toast.copyPath'))
     return
   }
   if (action === 'rename') {
-    const newName = await showInputDialog('重命名', '请输入新名称', name)
+    const newName = await showInputDialog(t('dialog.rename'), t('dialog.renamePlaceholder'), name)
     if (!newName || newName === name) return
     await run(async () => {
       await movePath(path, joinRelPath(parentRelPath(path), newName))
-      return `已重命名为 "${newName}"`
+      return t('toast.renamed', { name: newName })
     }, { rebuild: true })
     return
   }
   if (action === 'delete') {
-    const ok = await showConfirmDialog('删除确认', `确定删除目录 "${name}" 及其全部内容吗？此操作不可恢复。`)
+    const ok = await showConfirmDialog(
+      t('dialog.deleteConfirm'),
+      t('dialog.deleteDirMsg', { name }),
+    )
     if (!ok) return
     await run(async () => {
       await deletePath(path)
-      return `已删除 "${name}"`
+      return t('toast.deleted', { name })
     }, { rebuild: true })
   }
 }
@@ -91,7 +97,7 @@ async function navigate(path: string) {
     loading.value = false
     error.value = ''
     relPath.value = HELP_ROUTE
-    document.title = 'gofs 接口手册'
+    document.title = t('app.agentDocTitle')
     const target = '#' + HELP_ROUTE
     if (location.hash !== target) {
       suppressHashEvent = true
@@ -147,7 +153,8 @@ function onSelect(item: PathItem) {
 }
 
 // ---- write operations ----
-async function onUploadFiles(files: FileList | File[]) {
+async function onUploadFiles(files: FileList | File[] | null) {
+  if (!files) return
   const list = Array.from(files)
   for (const file of list) {
     const task: UploadTask = reactive({
@@ -186,62 +193,71 @@ async function run(fn: () => Promise<string | null>, opts?: { rebuild?: boolean 
     if (opts?.rebuild) await sidebarRef.value?.rebuildTree()
     showToast(msg, 'success')
   } catch (e) {
-    showToast('操作失败: ' + (e instanceof Error ? e.message : e), 'error')
+    showToast(t('app.operationFailed', { msg: e instanceof Error ? e.message : String(e) }), 'error')
   }
 }
 
 async function onNewFolder() {
-  const name = await showInputDialog('新建文件夹', '请输入文件夹名称', '')
+  const name = await showInputDialog(t('dialog.newFolder'), t('dialog.newFolderPlaceholder'), '')
   if (!name) return
   await run(async () => {
     await mkdir(joinRelPath(relPath.value, name))
-    return `已创建文件夹 "${name}"`
+    return t('toast.folderCreated', { name })
   }, { rebuild: true })
 }
 
 async function onNewFile() {
-  const name = await showInputDialog('新建文件', '请输入文件名', '')
+  const name = await showInputDialog(t('dialog.newFile'), t('dialog.newFilePlaceholder'), '')
   if (!name) return
   await run(async () => {
     await createFile(joinRelPath(relPath.value, name))
-    return `已创建文件 "${name}"`
+    return t('toast.fileCreated', { name })
   })
 }
 
 async function onDeleteItem(item: PathItem) {
-  const ok = await showConfirmDialog('删除确认', `确定删除 "${item.name}" 吗？此操作不可恢复。`)
+  const ok = await showConfirmDialog(
+    t('dialog.deleteConfirm'),
+    t('dialog.deleteItemMsg', { name: item.name }),
+  )
   if (!ok) return
   await run(async () => {
     await deletePath(joinRelPath(relPath.value, item.name))
-    return `已删除 "${item.name}"`
+    return t('toast.deleted', { name: item.name })
   }, { rebuild: isDir(item) })
 }
 
 async function onRenameItem(item: PathItem) {
-  const newName = await showInputDialog('重命名', '请输入新名称', item.name)
+  const newName = await showInputDialog(t('dialog.rename'), t('dialog.renamePlaceholder'), item.name)
   if (!newName || newName === item.name) return
   await run(async () => {
     await movePath(joinRelPath(relPath.value, item.name), joinRelPath(relPath.value, newName))
-    return `已重命名为 "${newName}"`
+    return t('toast.renamed', { name: newName })
   }, { rebuild: isDir(item) })
 }
 
 // 复制文本并 toast 提示。
 async function copyAndToast(text: string, label: string) {
   const ok = await copyText(text)
-  showToast(ok ? `${label}: ${text}` : `复制失败，请手动复制: ${text}`, ok ? 'success' : 'error')
+  showToast(
+    ok ? `${label}: ${text}` : t('toast.copyFailed', { text }),
+    ok ? 'success' : 'error',
+  )
 }
 
 // 复制完整路径（绝对 URL）。
 async function onCopyItem(item: PathItem) {
-  await copyAndToast(location.origin + absUrl(joinRelPath(relPath.value, item.name)), '已复制完整路径')
+  await copyAndToast(
+    location.origin + absUrl(joinRelPath(relPath.value, item.name)),
+    t('toast.copyPath'),
+  )
 }
 
 // 复制 curl 下载命令。
 async function onCopyCurl(item: PathItem) {
   const fullUrl = location.origin + absUrl(joinRelPath(relPath.value, item.name))
   const cmd = isDir(item) ? `curl -o "${item.name}.zip" "${fullUrl}?zip"` : `curl -O "${fullUrl}"`
-  await copyAndToast(cmd, '已复制命令')
+  await copyAndToast(cmd, t('toast.copyCmd'))
 }
 
 // 在浏览器新窗口/新标签页中打开（文件直接预览，目录进入该目录）。
@@ -253,7 +269,7 @@ function onOpenInNewTab(item: PathItem) {
 async function onCopyCurlUpload() {
   const base = location.origin + absUrl(relPath.value)
   const dirUrl = base.endsWith('/') ? base : base + '/'
-  await copyAndToast(`curl -T "<文件名>" "${dirUrl}"`, '已复制命令')
+  await copyAndToast(`curl -T "<file>" "${dirUrl}"`, t('toast.copyCmd'))
 }
 
 // 触发浏览器下载某个路径的 zip 打包。

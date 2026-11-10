@@ -1,4 +1,5 @@
 // File-kind detection and formatting helpers.
+import { t } from './i18n'
 
 export type FileKind =
   | 'image'
@@ -65,8 +66,8 @@ export function formatSize(size: number): string {
 }
 
 export function formatDirSize(size: number): string {
-  if (size >= 1000) return `>999 items`
-  return `${size} item${size === 1 ? '' : 's'}`
+  if (size >= 1000) return '>999'
+  return t('list.items', { n: size })
 }
 
 export function formatTime(mtime: number): string {
@@ -79,7 +80,7 @@ export function formatTime(mtime: number): string {
     d.getMonth() === today.getMonth() &&
     d.getDate() === today.getDate()
   if (sameDay) {
-    return `今天 ${pad(d.getHours())}:${pad(d.getMinutes())}`
+    return t('list.today', { time: `${pad(d.getHours())}:${pad(d.getMinutes())}` })
   }
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }

@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { TreeNode } from '../types'
 import { ICONS } from '../icons'
+import { t } from '../i18n'
 
 const props = defineProps<{ node: TreeNode; currentPath: string }>()
 const emit = defineEmits<{
@@ -48,9 +49,9 @@ function onAction(action: string, e: MouseEvent) {
       <span class="tree-icon" v-html="ICONS.folder"></span>
       <span class="tree-name">{{ node.name }}</span>
       <span class="tree-actions">
-        <button class="tree-action-btn" title="重命名" @click="onAction('rename', $event)" v-html="ICONS.rename"></button>
-        <button class="tree-action-btn" title="复制路径" @click="onAction('copy-path', $event)" v-html="ICONS.copy"></button>
-        <button class="tree-action-btn danger" title="删除" @click="onAction('delete', $event)" v-html="ICONS.trash"></button>
+        <button class="tree-action-btn" :title="t('action.rename')" @click="onAction('rename', $event)" v-html="ICONS.rename"></button>
+        <button class="tree-action-btn" :title="t('action.copyPath')" @click="onAction('copy-path', $event)" v-html="ICONS.copy"></button>
+        <button class="tree-action-btn danger" :title="t('action.delete')" @click="onAction('delete', $event)" v-html="ICONS.trash"></button>
       </span>
     </div>
     <ul v-show="node.expanded" v-if="hasChildren" class="tree-children">

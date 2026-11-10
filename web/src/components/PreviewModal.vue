@@ -6,6 +6,7 @@ import { absUrl, readText, fileHash, saveFile } from '../api'
 import { renderMarkdown } from '../markdown'
 import { ICONS } from '../icons'
 import { showToast, showConfirmDialog, copyText } from '../dialog'
+import { t } from '../i18n'
 
 const props = defineProps<{ item: PathItem; path: string; allowUpload: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()
@@ -46,8 +47,10 @@ function download() {
 async function copyLink() {
   const full = location.origin + url
   const ok = await copyText(full)
-  if (ok) showToast('已复制完整路径: ' + full, 'success')
-  else showToast('复制失败，请手动复制: ' + full, 'error')
+  showToast(
+    ok ? t('toast.copyPath') + ': ' + full : t('toast.copyFailed', { text: full }),
+    ok ? 'success' : 'error',
+  )
 }
 
 // 复制 curl 下载命令（预览只针对文件，目录不会走这里）。
@@ -55,8 +58,20 @@ async function copyCurl() {
   const full = location.origin + url
   const cmd = `curl -O "${full}"`
   const ok = await copyText(cmd)
-  if (ok) showToast('已复制命令: ' + cmd, 'success')
-  else showToast('复制失败: ' + cmd, 'error')
+  showToast(
+    ok ? t('toast.copyCmd') + ': ' + cmd : t('toast.copyFailed', { text: cmd }),
+    ok ? 'success' : 'error',
+  )
+}
+
+// 复制 SHA256 摘要。
+async function copyHash() {
+  if (!hash.value) return
+  const ok = await copyText(hash.value)
+  showToast(
+    ok ? t('toast.copyHash') : t('toast.copyFailed', { text: hash.value }),
+    ok ? 'success' : 'error',
+  )
 }
 
 // 在浏览器新窗口/新标签页中打开当前文件。
@@ -72,7 +87,7 @@ function startEdit() {
 
 async function cancelEdit() {
   if (dirty.value) {
-    const ok = await showConfirmDialog('放弃修改', '内容已修改，确定放弃未保存的修改吗？')
+    const ok = await showConfirmDialog(t('dialog.discard'), t('dialog.discardEditMsg'))
     if (!ok) return
   }
   editing.value = false
@@ -88,12 +103,12 @@ async function save() {
     // 保存成功后重新渲染只读视图
     renderTextView(editContent.value)
     editing.value = false
-    showToast('已保存', 'success')
+    showToast(t('toast.saved'), 'success')
     // 刷新 sha256
     try { hash.value = await fileHash(props.path) } catch { /* ignore */ }
     emit('saved')
   } catch (e) {
-    showToast('保存失败: ' + (e instanceof Error ? e.message : e), 'error')
+    showToast(t('toast.saveFailed', { msg: e instanceof Error ? e.message : String(e) }), 'error')
   } finally {
     saving.value = false
   }
@@ -109,7 +124,7 @@ function onEditorKeydown(e: KeyboardEvent) {
 
 async function onClose() {
   if (dirty.value) {
-    const ok = await showConfirmDialog('放弃修改', '内容已修改，确定关闭并放弃未保存的修改吗？')
+    const ok = await showConfirmDialog(t('dialog.discard'), t('dialog.discardCloseMsg'))
     if (!ok) return
   }
   emit('close')
@@ -144,11 +159,11 @@ onMounted(async () => {
       editContent.value = text
       renderTextView(text)
     } else {
-      bodyHtml.value = `<div class="preview-center"><div class="binary-box">${ICONS.file}<p>此文件类型暂不支持在线预览</p><p class="preview-meta">${formatSize(props.item.size)}</p></div></div>`
+      bodyHtml.value = `<div class="preview-center"><div class="binary-box">${ICONS.file}<p>${t('preview.notSupported')}</p><p class="preview-meta">${formatSize(props.item.size)}</p></div></div>`
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    bodyError.value = msg === 'FILE_TOO_LARGE' ? '文件过大，无法在线预览，请下载查看。' : msg
+    bodyError.value = msg === 'FILE_TOO_LARGE' ? t('preview.tooLarge') : msg
   } finally {
     loading.value = false
   }
@@ -166,27 +181,27 @@ onMounted(async () => {
       <div class="preview-head">
         <span class="preview-title" :title="item.name">{{ item.name }}</span>
         <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
-        <span v-if="dirty" class="preview-dirty">●未保存</span>
+        <span v-if="dirty" class="preview-dirty">{{ t('preview.unsaved') }}</span>
         <div class="preview-actions">
           <template v-if="!editing">
             <button v-if="editable && allowUpload" class="btn" @click="startEdit">
-              <span v-html="ICONS.rename"></span>编辑
+              <span v-html="ICONS.rename"></span>{{ t('preview.edit') }}
             </button>
-            <button class="btn" @click="download"><span v-html="ICONS.download"></span>下载</button>
-            <button class="btn" @click="copyLink"><span v-html="ICONS.link"></span>复制链接</button>
-            <button class="btn" title="复制 curl 下载命令" @click="copyCurl"><span v-html="ICONS.terminal"></span>curl 下载</button>
-            <button class="btn" title="在浏览器新窗口打开" @click="openInNewTab"><span v-html="ICONS.external"></span>新窗口打开</button>
+            <button class="btn" @click="download"><span v-html="ICONS.download"></span>{{ t('preview.download') }}</button>
+            <button class="btn" @click="copyLink"><span v-html="ICONS.link"></span>{{ t('preview.copyLink') }}</button>
+            <button class="btn" :title="t('action.copyCurl')" @click="copyCurl"><span v-html="ICONS.terminal"></span>{{ t('preview.curlDownload') }}</button>
+            <button class="btn" :title="t('preview.openNewTitle')" @click="openInNewTab"><span v-html="ICONS.external"></span>{{ t('preview.openNew') }}</button>
           </template>
           <template v-else>
             <button v-if="kind === 'markdown'" class="btn" @click="mdPreview = !mdPreview">
-              {{ mdPreview ? '继续编辑' : '预览' }}
+              {{ mdPreview ? t('preview.continueEdit') : t('preview.preview') }}
             </button>
             <button class="btn btn-primary" :disabled="saving || !dirty" @click="save">
-              {{ saving ? '保存中...' : '保存 (Ctrl+S)' }}
+              {{ saving ? t('preview.saving') : t('preview.save') }}
             </button>
-            <button class="btn" @click="cancelEdit">取消</button>
+            <button class="btn" @click="cancelEdit">{{ t('common.cancel') }}</button>
           </template>
-          <button class="icon-btn" title="关闭" @click="onClose" v-html="ICONS.close"></button>
+          <button class="icon-btn" :title="t('common.close')" @click="onClose" v-html="ICONS.close"></button>
         </div>
       </div>
       <div class="preview-body">
@@ -205,11 +220,12 @@ onMounted(async () => {
         </template>
         <div v-else v-html="bodyHtml"></div>
         <div v-if="!loading && !editing && kind === 'binary'" style="text-align:center;margin-top:12px">
-          <button class="btn btn-primary" @click="download">下载文件</button>
+          <button class="btn btn-primary" @click="download">{{ t('preview.downloadFile') }}</button>
         </div>
       </div>
       <div v-if="hash" class="preview-foot">
-        <span class="preview-meta">SHA256: {{ hash }}</span>
+        <span class="preview-meta preview-hash" :title="hash">SHA256: {{ hash }}</span>
+        <button class="icon-btn hash-copy" :title="t('preview.copyHash')" @click="copyHash" v-html="ICONS.copy"></button>
       </div>
     </div>
   </div>

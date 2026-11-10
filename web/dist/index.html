@@ -5,8 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%234f7cff'/%3E%3Cpath d='M22 34h24l6 8h26a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4V38a4 4 0 0 1 4-4z' fill='white'/%3E%3C/svg%3E" />
     <title>gofs</title>
-    <script type="module" crossorigin src="/__GOFS_ASSETS__/assets/index-tjTStKV9.js"></script>
-    <link rel="stylesheet" crossorigin href="/__GOFS_ASSETS__/assets/index-B7WLoFO7.css">
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the
+      // wrong theme (the Vue app takes over afterwards, see src/theme.ts).
+      (function () {
+        try {
+          var mode = localStorage.getItem('gofs.theme') || 'auto'
+          var dark =
+            mode === 'dark' ||
+            (mode === 'auto' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+          var loc = localStorage.getItem('gofs.locale')
+          if (loc === 'zh' || loc === 'en') document.documentElement.lang = loc === 'zh' ? 'zh-CN' : 'en'
+        } catch (e) {}
+      })()
+    </script>
+    <script type="module" crossorigin src="/__GOFS_ASSETS__/assets/index-C9znKS8r.js"></script>
+    <link rel="stylesheet" crossorigin href="/__GOFS_ASSETS__/assets/index-B6Liy7Pi.css">
   </head>
   <body>
     <div id="app"></div>

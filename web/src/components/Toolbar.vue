@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import type { SortKey, SortOrder } from '../types'
 import { ICONS } from '../icons'
+import { t } from '../i18n'
 
 const props = defineProps<{
   breadcrumbs: { name: string; path: string }[]
@@ -62,7 +63,7 @@ function onFileChange(e: Event) {
 <template>
   <div>
     <div class="toolbar-row">
-      <button class="icon-btn" title="切换侧栏" @click="emit('toggle-sidebar')" v-html="ICONS.menu"></button>
+      <button class="icon-btn" :title="t('toolbar.toggleSidebar')" @click="emit('toggle-sidebar')" v-html="ICONS.menu"></button>
       <nav class="breadcrumb">
         <template v-for="(c, i) in breadcrumbs" :key="c.path">
           <span v-if="i > 0" class="crumb-sep">/</span>
@@ -80,38 +81,38 @@ function onFileChange(e: Event) {
         <input
           v-model="searchInput"
           type="text"
-          placeholder="搜索文件..."
+          :placeholder="t('toolbar.search')"
           @keyup="onSearchKeyup"
         />
         <button v-show="searchInput" class="search-clear" @click="clearSearch">×</button>
       </div>
-      <button class="icon-btn" title="刷新" @click="emit('refresh')" v-html="ICONS.refresh"></button>
+      <button class="icon-btn" :title="t('common.refresh')" @click="emit('refresh')" v-html="ICONS.refresh"></button>
       <div class="view-toggle">
-        <button class="icon-btn" :class="{ active: viewMode === 'list' }" title="列表视图" @click="emit('view-change', 'list')" v-html="ICONS.list"></button>
-        <button class="icon-btn" :class="{ active: viewMode === 'grid' }" title="网格视图" @click="emit('view-change', 'grid')" v-html="ICONS.grid"></button>
+        <button class="icon-btn" :class="{ active: viewMode === 'list' }" :title="t('toolbar.listView')" @click="emit('view-change', 'list')" v-html="ICONS.list"></button>
+        <button class="icon-btn" :class="{ active: viewMode === 'grid' }" :title="t('toolbar.gridView')" @click="emit('view-change', 'grid')" v-html="ICONS.grid"></button>
       </div>
       <button v-if="allowUpload" class="btn btn-primary" @click="triggerUpload">
-        <span v-html="ICONS.upload"></span>上传
+        <span v-html="ICONS.upload"></span>{{ t('toolbar.upload') }}
       </button>
       <input ref="fileInput" type="file" multiple style="display:none" @change="onFileChange" />
     </div>
     <div class="toolbar-row toolbar-secondary">
       <div class="sort-group">
-        <span class="sort-label">排序</span>
-        <button class="chip" :class="{ active: sort === 'name' }" @click="onSort('name')">名称<span>{{ sort === 'name' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
-        <button class="chip" :class="{ active: sort === 'mtime' }" @click="onSort('mtime')">修改时间<span>{{ sort === 'mtime' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
-        <button class="chip" :class="{ active: sort === 'size' }" @click="onSort('size')">大小<span>{{ sort === 'size' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
+        <span class="sort-label">{{ t('toolbar.sort') }}</span>
+        <button class="chip" :class="{ active: sort === 'name' }" @click="onSort('name')">{{ t('toolbar.sortName') }}<span>{{ sort === 'name' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
+        <button class="chip" :class="{ active: sort === 'mtime' }" @click="onSort('mtime')">{{ t('toolbar.sortMtime') }}<span>{{ sort === 'mtime' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
+        <button class="chip" :class="{ active: sort === 'size' }" @click="onSort('size')">{{ t('toolbar.sortSize') }}<span>{{ sort === 'size' ? (order === 'asc' ? '↑' : '↓') : '' }}</span></button>
       </div>
       <div class="toolbar-spacer"></div>
       <template v-if="allowUpload">
-        <button class="btn" @click="emit('new-folder')"><span v-html="ICONS.newFolder"></span>新建文件夹</button>
-        <button class="btn" @click="emit('new-file')"><span v-html="ICONS.newFile"></span>新建文件</button>
+        <button class="btn" @click="emit('new-folder')"><span v-html="ICONS.newFolder"></span>{{ t('toolbar.newFolder') }}</button>
+        <button class="btn" @click="emit('new-file')"><span v-html="ICONS.newFile"></span>{{ t('toolbar.newFile') }}</button>
       </template>
-      <button class="btn" title="复制 curl 上传到此目录的命令" @click="emit('curl-upload')">
-        <span v-html="ICONS.terminal"></span>curl 上传命令
+      <button class="btn" :title="t('toolbar.curlUploadTitle')" @click="emit('curl-upload')">
+        <span v-html="ICONS.terminal"></span>{{ t('toolbar.curlUpload') }}
       </button>
       <button v-if="allowArchive" class="btn" @click="emit('download-archive')">
-        <span v-html="ICONS.archive"></span>打包下载
+        <span v-html="ICONS.archive"></span>{{ t('toolbar.archive') }}
       </button>
     </div>
   </div>

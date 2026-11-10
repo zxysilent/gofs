@@ -1,6 +1,7 @@
 // Custom modal dialogs + toast, replacing native prompt/confirm/alert which
 // are not supported in some (headless) environments.
 import { esc } from './icons'
+import { t } from './i18n'
 
 function ensureModalRoot(): HTMLElement {
   let root = document.getElementById('modal-root')
@@ -21,8 +22,8 @@ export function showInputDialog(title: string, placeholder: string, defaultValue
           <div class="modal-title">${esc(title)}</div>
           <input class="modal-input" id="modal-input" placeholder="${esc(placeholder)}" value="${esc(defaultValue)}" />
           <div class="modal-actions">
-            <button class="btn" id="modal-cancel">取消</button>
-            <button class="btn btn-primary" id="modal-ok">确定</button>
+            <button class="btn" id="modal-cancel">${esc(t('common.cancel'))}</button>
+            <button class="btn btn-primary" id="modal-ok">${esc(t('common.ok'))}</button>
           </div>
         </div>
       </div>`
@@ -49,8 +50,8 @@ export function showConfirmDialog(title: string, message: string): Promise<boole
           <div class="modal-title">${esc(title)}</div>
           <div class="modal-message">${esc(message)}</div>
           <div class="modal-actions">
-            <button class="btn" id="modal-cancel">取消</button>
-            <button class="btn btn-danger" id="modal-ok">确定删除</button>
+            <button class="btn" id="modal-cancel">${esc(t('common.cancel'))}</button>
+            <button class="btn btn-danger" id="modal-ok">${esc(t('common.delete'))}</button>
           </div>
         </div>
       </div>`

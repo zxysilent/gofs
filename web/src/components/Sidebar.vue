@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../types'
 import { listDir, absUrl, readText } from '../api'
 import { ICONS } from '../icons'
 import { copyText, showToast } from '../dialog'
+import { locale, t, toggleLocale } from '../i18n'
+import { themeMode, resolvedTheme, cycleTheme } from '../theme'
+import { HELP_CONTENT } from '../help-content'
 import TreeNodeComp from './TreeNode.vue'
 
 const props = defineProps<{ currentPath: string }>()
@@ -32,13 +35,50 @@ const agentError = ref('')
 
 const currentDoc = computed(() => (activeTab.value === 'human' ? README_DOC : AGENT_DOC))
 
+// 当前语言下的帮助内容（静态双语数据）。
+const helpSections = computed(() => HELP_CONTENT[locale.value])
+
+// 带语言参数的文档地址：后端虚拟文档支持 ?lang=。
+function docUrl(path: string): string {
+  return `${path}?lang=${locale.value}`
+}
+
+// 主题切换按钮：图标 + 当前模式文字，暗色下也能一眼看出当前状态。
+const themeIcon = computed(() => {
+  if (themeMode.value === 'light') return ICONS.sun
+  if (themeMode.value === 'dark') return ICONS.moon
+  return ICONS.auto
+})
+
+const themeLabel = computed(
+  () =>
+    ({
+      auto: t('settings.themeAuto'),
+      light: t('settings.themeLight'),
+      dark: t('settings.themeDark'),
+    })[themeMode.value],
+)
+
+const themeTitle = computed(() => `${t('settings.theme')}: ${themeLabel.value}`)
+
+// 语言按钮：直接用当前语言的自称，切换时图标随之变化。
+const localeLabel = computed(() => (locale.value === 'zh' ? '中' : 'EN'))
+const localeTitle = computed(
+  () => `${t('settings.language')}: ${locale.value === 'zh' ? '中文' : 'English'}`,
+)
+
 async function selectTab(tab: 'human' | 'agent') {
   activeTab.value = tab
   if (tab !== 'agent' || agentDoc.value || agentLoading.value) return
+  await loadAgentDoc()
+}
+
+// 按当前语言拉取 agent 手册（切换语言时重新拉取）。
+async function loadAgentDoc() {
   agentLoading.value = true
   agentError.value = ''
   try {
-    agentDoc.value = await readText(AGENT_DOC)
+    agentDoc.value = await readText(docUrl(AGENT_DOC))
   } catch (e) {
     agentError.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -46,21 +86,32 @@ async function selectTab(tab: 'human' | 'agent') {
   }
 }
 
+// 语言变化后，若 agent 手册已加载则重新拉取对应语言的版本。
+watch(locale, () => {
+  if (agentDoc.value) void loadAgentDoc()
+})
+
 // 在新标签页打开当前 tab 对应的原始 Markdown。
 function openDoc() {
-  window.open(location.origin + absUrl(currentDoc.value), '_blank', 'noopener')
+  window.open(location.origin + absUrl(currentDoc.value) + '?lang=' + locale.value, '_blank', 'noopener')
 }
 
 async function copyDocUrl() {
-  const url = location.origin + absUrl(currentDoc.value)
+  const url = location.origin + absUrl(currentDoc.value) + '?lang=' + locale.value
   const ok = await copyText(url)
-  showToast(ok ? '已复制地址: ' + url : '复制失败: ' + url, ok ? 'success' : 'error')
+  showToast(
+    ok ? t('sidebar.copiedUrl', { url }) : t('sidebar.copyUrlFailed', { url }),
+    ok ? 'success' : 'error',
+  )
 }
 
 // 复制 agent 手册全文，方便直接粘给 AI。
 async function copyAgentDoc() {
   const ok = await copyText(agentDoc.value)
-  showToast(ok ? '已复制接口手册全文' : '复制失败，请手动选择复制', ok ? 'success' : 'error')
+  showToast(
+    ok ? t('toast.copiedManual') : t('toast.copyFailedManual'),
+    ok ? 'success' : 'error',
+  )
 }
 
 function makeNode(path: string, name: string): TreeNode {
@@ -201,10 +252,10 @@ onMounted(() => {
       <div
         class="sidebar-label sidebar-label-clickable"
         :class="{ active: currentPath === '/' }"
-        title="回到根目录"
+        :title="t('sidebar.rootTitle')"
         @click="onSelect('/')"
       >
-        <span class="sidebar-label-icon" v-html="ICONS.list"></span>文件列表
+        <span class="sidebar-label-icon" v-html="ICONS.list"></span>{{ t('sidebar.fileList') }}
       </div>
       <ul class="tree">
         <TreeNodeComp
@@ -220,8 +271,17 @@ onMounted(() => {
     </div>
     <div class="sidebar-foot">
       <button class="help-btn" @click="showHelp = true">
-        <span class="help-btn-icon" v-html="ICONS.info"></span>使用说明
+        <span class="help-btn-icon" v-html="ICONS.info"></span>{{ t('sidebar.help') }}
       </button>
+      <div class="sidebar-settings">
+        <button class="setting-btn" :title="themeTitle" @click="cycleTheme()">
+          <span class="setting-icon" v-html="themeIcon"></span>
+          <span class="setting-text">{{ themeLabel }}</span>
+        </button>
+        <button class="setting-btn" :title="localeTitle" @click="toggleLocale()">
+          <span class="setting-lang">{{ localeLabel }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 使用说明弹窗 -->
@@ -233,75 +293,48 @@ onMounted(() => {
               class="help-tab"
               :class="{ active: activeTab === 'human' }"
               @click="selectTab('human')"
-            >使用说明</button>
+            >{{ t('sidebar.tabGuide') }}</button>
             <button
               class="help-tab"
               :class="{ active: activeTab === 'agent' }"
               @click="selectTab('agent')"
-            >Agent说明</button>
+            >{{ t('sidebar.tabAgent') }}</button>
           </div>
           <div class="toolbar-spacer"></div>
           <button
             v-if="activeTab === 'agent' && agentDoc"
             class="btn"
-            title="复制接口手册全文"
+            :title="t('sidebar.copyAll')"
             @click="copyAgentDoc"
           >
-            <span v-html="ICONS.copy"></span>复制全文
+            <span v-html="ICONS.copy"></span>{{ t('sidebar.copyAll') }}
           </button>
-          <button class="btn" title="在新标签页打开原始 Markdown" @click="openDoc">
-            <span v-html="ICONS.external"></span>原始文件
+          <button class="btn" :title="t('sidebar.rawFileTitle')" @click="openDoc">
+            <span v-html="ICONS.external"></span>{{ t('sidebar.rawFile') }}
           </button>
-          <button class="btn" title="复制原始 Markdown 地址" @click="copyDocUrl">
-            <span v-html="ICONS.copy"></span>复制地址
+          <button class="btn" :title="t('sidebar.copyUrlTitle')" @click="copyDocUrl">
+            <span v-html="ICONS.copy"></span>{{ t('sidebar.copyUrl') }}
           </button>
         </div>
         <div v-show="activeTab === 'human'" class="help-content">
-          <h4>浏览与导航</h4>
-          <ul>
-            <li>左侧目录树点击文件夹进入；右侧列表点击文件夹进入、点击文件预览。</li>
-            <li>顶部面包屑可快速回到任意上级目录；地址用 <code>#/路径</code> 记录，可收藏/刷新不丢位置。</li>
-            <li>侧栏与内容之间的分隔条可左右拖动调整宽度。</li>
-          </ul>
-          <h4>搜索与排序</h4>
-          <ul>
-            <li>搜索框输入后回车，在当前目录递归搜索文件。</li>
-            <li>按名称 / 修改时间 / 大小排序，再次点击切换升降序。</li>
-          </ul>
-          <h4>文件操作</h4>
-          <ul>
-            <li>上传：点"上传"按钮选择文件，显示实时进度。</li>
-            <li>新建文件夹 / 新建文件；重命名、删除（均不可恢复，删除有二次确认）。</li>
-            <li>打包下载：把当前目录或某个子目录打包为 zip 下载。</li>
-            <li>复制完整路径 / 复制 curl 下载命令 / curl 上传命令，便于命令行操作。</li>
-          </ul>
-          <h4>curl 命令示例</h4>
-          <ul>
-            <li>上传文件：<code>curl -T local/path/to/file.ext http://host:port/path/to/file.ext</code></li>
-            <li>下载文件：<code>curl -O http://host:port/path/to/file.ext</code></li>
-            <li>查看列表：<code>curl "http://host:port/?json="</code></li>
-            <li>搜索文件：<code>curl "http://host:port/?json=&amp;q=keyword"</code></li>
-            <li>重命名/移动：<code>curl -X MOVE -H "Destination: http://host:port/new/path" http://host:port/old/path</code></li>
-            <li>删除：<code>curl -X DELETE http://host:port/path/to/file.ext</code></li>
-            <li>新建目录：<code>curl -X MKCOL http://host:port/path/to/dir</code></li>
-            <li>打包下载目录：加 <code>?zip</code>，如 <code>curl -o dir.zip "http://host:port/path/to/dir?zip"</code></li>
-            <li>获取文件 SHA256：加 <code>?hash</code>，如 <code>curl "http://host:port/path/to/file.ext?hash"</code></li>
-          </ul>
-          <h4>预览与编辑</h4>
-          <ul>
-            <li>支持图片、视频、音频、PDF、Markdown、代码、JSON、文本在线预览。</li>
-            <li>文本类文件可直接点"编辑"在线修改，<code>Ctrl/Cmd+S</code> 保存；Markdown 编辑时可切换预览。</li>
-          </ul>
+          <template v-for="section in helpSections" :key="section.title">
+            <h4>{{ section.title }}</h4>
+            <ul>
+              <li v-for="(item, i) in section.items" :key="i" v-html="item"></li>
+            </ul>
+          </template>
         </div>
         <div v-show="activeTab === 'agent'" class="help-content help-agent">
           <div v-if="agentLoading" class="file-loading">
-            <span v-html="ICONS.spinner"></span><span>加载中...</span>
+            <span v-html="ICONS.spinner"></span><span>{{ t('common.loading') }}</span>
           </div>
-          <div v-else-if="agentError" class="error-banner">加载失败：{{ agentError }}</div>
+          <div v-else-if="agentError" class="error-banner">
+            {{ t('common.loadFailed', { msg: agentError }) }}
+          </div>
           <pre v-else class="help-md">{{ agentDoc }}</pre>
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary" @click="showHelp = false">关闭</button>
+          <button class="btn btn-primary" @click="showHelp = false">{{ t('common.close') }}</button>
         </div>
       </div>
     </div>

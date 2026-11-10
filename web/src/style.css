@@ -11,32 +11,38 @@
   --accent-hover: #2563eb;
   --accent-soft: #dbeafe;
   --danger: #ef4444;
+  --danger-strong: #dc2626;
   --success: #22c55e;
   --warn: #f59e0b;
+  --kind-media: #8b5cf6;
+  --kind-archive: #d97706;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   --radius: 8px;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16181d;
-    --bg-panel: #1e2128;
-    --bg-sidebar: #1a1d23;
-    --bg-hover: #262b34;
-    --bg-active: #2b3a55;
-    --border: #2c323c;
-    --text: #e6e9ef;
-    --text-secondary: #98a2b3;
-    --accent: #4c8dff;
-    --accent-hover: #6ba1ff;
-    --accent-soft: #1f3350;
-    --danger: #f87171;
-    --success: #4ade80;
-    --warn: #fbbf24;
-    --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
-    color-scheme: dark;
-  }
+/* Dark theme: applied via <html data-theme="dark"> (see src/theme.ts),
+   which resolves "auto" against the system preference in JS. */
+:root[data-theme='dark'] {
+  --bg: #16181d;
+  --bg-panel: #1e2128;
+  --bg-sidebar: #1a1d23;
+  --bg-hover: #262b34;
+  --bg-active: #2b3a55;
+  --border: #2c323c;
+  --text: #e6e9ef;
+  --text-secondary: #98a2b3;
+  --accent: #4c8dff;
+  --accent-hover: #6ba1ff;
+  --accent-soft: #1f3350;
+  --danger: #f87171;
+  --danger-strong: #ef4444;
+  --success: #4ade80;
+  --warn: #fbbf24;
+  --kind-media: #a78bfa;
+  --kind-archive: #fbbf24;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
 }
 
 * {
@@ -123,10 +129,68 @@ body {
 }
 
 .sidebar-foot {
-  padding: 12px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
   border-top: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+/* 主题 / 语言切换按钮组，靠右排列 */
+.sidebar-settings {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.setting-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.setting-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.setting-icon {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.setting-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+.setting-text {
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* 语言按钮：显示当前语言的自称（中 / EN） */
+.setting-lang {
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  min-width: 16px;
+  text-align: center;
 }
 
 .tree {
@@ -499,7 +563,7 @@ body {
 .file-icon.kind-image,
 .file-icon.kind-video,
 .file-icon.kind-audio {
-  color: #8b5cf6;
+  color: var(--kind-media);
 }
 
 .file-icon.kind-pdf {
@@ -514,7 +578,7 @@ body {
 }
 
 .file-icon.kind-archive {
-  color: #d97706;
+  color: var(--kind-archive);
 }
 
 .col-type,
@@ -575,7 +639,7 @@ body {
 .file-card-icon.kind-image,
 .file-card-icon.kind-video,
 .file-card-icon.kind-audio {
-  color: #8b5cf6;
+  color: var(--kind-media);
 }
 
 .file-card-icon.kind-pdf {
@@ -590,7 +654,7 @@ body {
 }
 
 .file-card-icon.kind-archive {
-  color: #d97706;
+  color: var(--kind-archive);
 }
 
 .file-card-name {
@@ -810,11 +874,33 @@ body {
 }
 
 .preview-foot {
-  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 16px;
   border-top: 1px solid var(--border);
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* SHA256 文本可收缩省略，复制按钮固定在最右 */
+.preview-hash {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.hash-copy {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.hash-copy svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ---------- Upload manager ---------- */
@@ -952,7 +1038,7 @@ body {
 }
 
 .btn-danger:hover {
-  background: #dc2626;
+  background: var(--danger-strong);
 }
 
 /* ========== Toast ========== */
@@ -1258,7 +1344,7 @@ body {
 }
 
 .tree-action-btn.danger:hover {
-  color: #dc2626;
+  color: var(--danger-strong);
 }
 
 .tree-action-btn :deep(svg),
