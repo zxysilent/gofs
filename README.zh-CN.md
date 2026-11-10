@@ -179,33 +179,39 @@ go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
 ```
 gofs [OPTIONS] [serve-path]
 
+Arguments:
+  [serve-path]  Specific path to serve [default: .]
+
 Options:
-  -c, --config <file>        Specify configuration file (TOML)
-  -b, --bind <addrs>         Specify bind address or unix socket
-  -p, --port <port>          Specify port to listen on [default: 5000]
-      --path-prefix <path>   Specify a path prefix
-      --hidden <value>       Hide paths from directory listings, e.g. tmp,*.log,*.lock
-  -a, --auth <rules>         Add auth roles, e.g. user:pass@/dir1:rw,/dir2
-  -A, --allow-all            Allow all operations
-      --allow-upload         Allow upload files/folders
-      --allow-delete         Allow delete files/folders
-      --allow-search         Allow search files/folders
-      --allow-symlink        Allow symlink to files/folders outside root directory
-      --allow-archive        Allow download folders as archive file
-      --allow-hash           Allow ?hash query to get file sha256 hash
-      --enable-cors          Enable CORS, sets `Access-Control-Allow-Origin: *`
-      --render-index         Serve index.html when requesting a directory, returns 404 if not found index.html
-      --render-try-index     Serve index.html when requesting a directory, returns directory listing if not found index.html
-      --render-spa           Serve SPA (Single Page Application)
-      --assets <path>        Set the path to the assets directory for overriding the built-in assets
-      --log-file <file>      Specify the file to save logs to, other than stdout/stderr
-      --log-level <level>    Set the log level [default: info] [possible values: debug, info, warn, error]
-      --compress <level>     Set zip compress level [default: low] [possible values: none, low, medium, high]
-      --completions <shell>  Print shell completion script for <shell>
-      --tls-cert <path>      Path to an SSL/TLS certificate to serve with HTTPS
-      --tls-key <path>       Path to the SSL/TLS certificate's private key
-  -h, --help                 Print help
-  -V, --version              Print version
+  -c, --config <file>                   configuration file (TOML)
+  -b, --bind <addrs>                    bind address or unix socket
+  -p, --port <port>                     port to listen on (default 5000)
+      --path-prefix <path>              path prefix
+      --hidden <value>                  hide paths from listings, e.g. tmp,*.log
+  -a, --auth <rules>                    auth rules, e.g. user:pass@/dir1:rw,/dir2
+  -A, --allow-all[=true|false]          allow all operations
+      --allow-upload[=true|false]       allow upload files/folders
+      --allow-delete[=true|false]       allow delete files/folders
+      --allow-search[=true|false]       allow search files/folders
+      --allow-symlink[=true|false]      allow symlink outside root directory
+      --allow-archive[=true|false]      allow download folders as archive
+      --allow-hash[=true|false]         allow ?hash query for file sha256
+      --enable-cors[=true|false]        enable CORS for every origin
+      --render-index[=true|false]       serve index.html for a directory, 404 if absent
+      --render-try-index[=true|false]   serve index.html, else list the directory
+      --render-spa[=true|false]         serve as a single page application
+      --assets <path>                   override the built-in assets directory
+      --log-file <file>                 write logs to a file instead of stderr
+      --log-level <level>               log level: debug, info, warn, error (default info)
+      --compress <level>                zip level: none, low, medium, high (default low)
+      --completions <shell>             print a shell completion script (bash)
+      --tls-cert <path>                 TLS certificate for HTTPS
+      --tls-key <path>                  TLS private key for HTTPS
+  -h, --help[=true|false]               print help
+  -V, --version[=true|false]            print version
+
+Configuration is read from a TOML file (--config), GOFS_* environment
+variables and the command line, in increasing order of precedence.
 ```
 
 所有选项也可通过 `GOFS_*` 环境变量设置（例如 `GOFS_PORT=5000`、

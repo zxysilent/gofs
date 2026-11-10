@@ -160,41 +160,94 @@ type flags struct {
 	version        bool
 }
 
-// newFlagSet registers every option on a FlagSet. The usage strings are never
-// printed (printHelp in main.go owns the help text), but pflag wants them.
+// newFlagSet registers every option. This is the single source of truth for
+// the CLI: help (PrintHelp) and shell completions (PrintCompletions) are both
+// generated from it, so adding a flag cannot leave either out of date.
 func newFlagSet(f *flags) *pflag.FlagSet {
 	fs := pflag.NewFlagSet("gofs", pflag.ContinueOnError)
-	fs.SortFlags = false
+	fs.SortFlags = false // keep registration order, which is the display order
 	fs.Usage = func() {}
 	fs.SetOutput(io.Discard)
 
-	fs.StringVarP(&f.config, "config", "c", "", "configuration file (TOML)")
-	fs.StringSliceVarP(&f.bind, "bind", "b", nil, "bind address or unix socket")
-	fs.IntVarP(&f.port, "port", "p", 0, "port to listen on")
-	fs.StringVar(&f.pathPrefix, "path-prefix", "", "path prefix")
-	fs.StringSliceVar(&f.hidden, "hidden", nil, "hide paths from directory listings")
-	fs.StringArrayVarP(&f.auth, "auth", "a", nil, "auth rules, e.g. user:pass@/dir1:rw,/dir2")
+	strVarP(fs, &f.config, "config", "c", "<file>", "configuration file (TOML)")
+	sliceVarP(fs, &f.bind, "bind", "b", "<addrs>", "bind address or unix socket")
+	intVarP(fs, &f.port, "port", "p", "<port>", "port to listen on (default 5000)")
+	strVar(fs, &f.pathPrefix, "path-prefix", "<path>", "path prefix")
+	sliceVar(fs, &f.hidden, "hidden", "<value>", "hide paths from listings, e.g. tmp,*.log")
+	arrayVarP(fs, &f.auth, "auth", "a", "<rules>", "auth rules, e.g. user:pass@/dir1:rw,/dir2")
 	fs.BoolVarP(&f.allowAll, "allow-all", "A", false, "allow all operations")
 	fs.BoolVar(&f.allowUpload, "allow-upload", false, "allow upload files/folders")
 	fs.BoolVar(&f.allowDelete, "allow-delete", false, "allow delete files/folders")
 	fs.BoolVar(&f.allowSearch, "allow-search", false, "allow search files/folders")
 	fs.BoolVar(&f.allowSymlink, "allow-symlink", false, "allow symlink outside root directory")
 	fs.BoolVar(&f.allowArchive, "allow-archive", false, "allow download folders as archive")
-	fs.BoolVar(&f.allowHash, "allow-hash", false, "allow ?hash query for sha256")
-	fs.BoolVar(&f.enableCors, "enable-cors", false, "enable CORS")
-	fs.BoolVar(&f.renderIndex, "render-index", false, "serve index.html for directories")
+	fs.BoolVar(&f.allowHash, "allow-hash", false, "allow ?hash query for file sha256")
+	fs.BoolVar(&f.enableCors, "enable-cors", false, "enable CORS for every origin")
+	fs.BoolVar(&f.renderIndex, "render-index", false, "serve index.html for a directory, 404 if absent")
 	fs.BoolVar(&f.renderTryIndex, "render-try-index", false, "serve index.html, else list the directory")
-	fs.BoolVar(&f.renderSpA, "render-spa", false, "serve as an SPA")
-	fs.StringVar(&f.assets, "assets", "", "override the built-in assets directory")
-	fs.StringVar(&f.logFile, "log-file", "", "file to write logs to")
-	fs.StringVar(&f.logLevel, "log-level", "", "log level: debug, info, warn, error")
-	fs.StringVar(&f.compress, "compress", "", "zip compress level: none, low, medium, high")
-	fs.StringVar(&f.completions, "completions", "", "print shell completion script")
-	fs.StringVar(&f.tlsCert, "tls-cert", "", "TLS certificate path")
-	fs.StringVar(&f.tlsKey, "tls-key", "", "TLS private key path")
+	fs.BoolVar(&f.renderSpA, "render-spa", false, "serve as a single page application")
+	strVar(fs, &f.assets, "assets", "<path>", "override the built-in assets directory")
+	strVar(fs, &f.logFile, "log-file", "<file>", "write logs to a file instead of stderr")
+	strVar(fs, &f.logLevel, "log-level", "<level>", "log level: debug, info, warn, error (default info)")
+	strVar(fs, &f.compress, "compress", "<level>", "zip level: none, low, medium, high (default low)")
+	strVar(fs, &f.completions, "completions", "<shell>", "print a shell completion script (bash)")
+	strVar(fs, &f.tlsCert, "tls-cert", "<path>", "TLS certificate for HTTPS")
+	strVar(fs, &f.tlsKey, "tls-key", "<path>", "TLS private key for HTTPS")
 	fs.BoolVarP(&f.help, "help", "h", false, "print help")
 	fs.BoolVarP(&f.version, "version", "V", false, "print version")
 	return fs
+}
+
+// shownType overrides the type column of pflag's generated usage table, so it
+// reads "<file>" instead of "string".
+type shownType struct {
+	pflag.Value
+	name string
+}
+
+func (v shownType) Type() string { return v.name }
+
+func labelType(fs *pflag.FlagSet, name, shown string) {
+	fl := fs.Lookup(name)
+	fl.Value = shownType{fl.Value, shown}
+	// 包装后 pflag 的类型断言（*stringSliceValue 等）失效，"[]" 不再被认作
+	// 零值，帮助里会多出 "(default [])"。空字符串是它 default 分支认可的零值。
+	if fl.DefValue == "[]" {
+		fl.DefValue = ""
+	}
+}
+
+func strVar(fs *pflag.FlagSet, p *string, name, shown, usage string) {
+	fs.StringVar(p, name, "", usage)
+	labelType(fs, name, shown)
+}
+
+func strVarP(fs *pflag.FlagSet, p *string, name, short, shown, usage string) {
+	fs.StringVarP(p, name, short, "", usage)
+	labelType(fs, name, shown)
+}
+
+func intVarP(fs *pflag.FlagSet, p *int, name, short, shown, usage string) {
+	fs.IntVarP(p, name, short, 0, usage)
+	labelType(fs, name, shown)
+}
+
+// sliceVar is a comma-separated list (--hidden a,b).
+func sliceVar(fs *pflag.FlagSet, p *[]string, name, shown, usage string) {
+	fs.StringSliceVar(p, name, nil, usage)
+	labelType(fs, name, shown)
+}
+
+func sliceVarP(fs *pflag.FlagSet, p *[]string, name, short, shown, usage string) {
+	fs.StringSliceVarP(p, name, short, nil, usage)
+	labelType(fs, name, shown)
+}
+
+// arrayVar keeps every repetition separate (--auth "...,:rw" --auth "..."),
+// because auth rules contain commas themselves.
+func arrayVarP(fs *pflag.FlagSet, p *[]string, name, short, shown, usage string) {
+	fs.StringArrayVarP(p, name, short, nil, usage)
+	labelType(fs, name, shown)
 }
 
 func parseCLI(argv []string) (*flags, *pflag.FlagSet, []string, error) {

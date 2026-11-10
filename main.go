@@ -30,7 +30,7 @@ func main() {
 		os.Exit(1)
 	}
 	if res.Help {
-		printHelp()
+		config.PrintHelp()
 		return
 	}
 	if res.Version {
@@ -38,7 +38,7 @@ func main() {
 		return
 	}
 	if res.Completions != "" {
-		printCompletions(res.Completions)
+		config.PrintCompletions(res.Completions)
 		return
 	}
 
@@ -153,58 +153,4 @@ func printListening(args config.Args) string {
 		sb.WriteString("\n")
 	}
 	return sb.String()
-}
-
-func printHelp() {
-	fmt.Print(`gofs is a distinctive utility file server.
-
-Usage: gofs [OPTIONS] [serve-path]
-
-Arguments:
-  [serve-path]  Specific path to serve [default: .]
-
-Options:
-  -c, --config <file>        Specify configuration file (TOML)
-  -b, --bind <addrs>         Specify bind address or unix socket
-  -p, --port <port>          Specify port to listen on [default: 5000]
-      --path-prefix <path>   Specify a path prefix
-      --hidden <value>       Hide paths from directory listings, e.g. tmp,*.log,*.lock
-  -a, --auth <rules>         Add auth roles, e.g. user:pass@/dir1:rw,/dir2
-  -A, --allow-all            Allow all operations
-      --allow-upload         Allow upload files/folders
-      --allow-delete         Allow delete files/folders
-      --allow-search         Allow search files/folders
-      --allow-symlink        Allow symlink to files/folders outside root directory
-      --allow-archive        Allow download folders as archive file
-      --allow-hash           Allow ?hash query to get file sha256 hash
-      --enable-cors          Enable CORS, sets ` + "`Access-Control-Allow-Origin: *`" + `
-      --render-index         Serve index.html when requesting a directory, returns 404 if not found index.html
-      --render-try-index     Serve index.html when requesting a directory, returns directory listing if not found index.html
-      --render-spa           Serve SPA(Single Page Application)
-      --assets <path>        Set the path to the assets directory for overriding the built-in assets
-      --log-file <file>      Specify the file to save logs to, other than stdout/stderr
-      --log-level <level>    Set the log level [default: info] [possible values: debug, info, warn, error]
-      --compress <level>     Set zip compress level [default: low] [possible values: none, low, medium, high]
-      --completions <shell>  Print shell completion script for <shell> [possible values: bash, elvish, fish, powershell, zsh]
-      --tls-cert <path>      Path to an SSL/TLS certificate to serve with HTTPS
-      --tls-key <path>       Path to the SSL/TLS certificate's private key
-  -h, --help                 Print help
-  -V, --version              Print version
-`)
-}
-
-func printCompletions(shell string) {
-	// A minimal completion script (bash). Full completions are beyond the
-	// scope of this reimplementation; we emit a functional bash script.
-	if shell == "bash" {
-		fmt.Print(`_gofs() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
-  local opts="--config --bind --port --path-prefix --hidden --auth --allow-all --allow-upload --allow-delete --allow-search --allow-symlink --allow-archive --allow-hash --enable-cors --render-index --render-try-index --render-spa --assets --log-file --log-level --compress --completions --tls-cert --tls-key --help --version"
-  COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-}
-complete -F _gofs gofs
-`)
-		return
-	}
-	fmt.Printf("# completion for %s is not implemented\n", shell)
 }
