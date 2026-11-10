@@ -92,7 +92,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/in
 
 ```sh
 # 指定版本
-curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.1
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.2
 
 # 无需 sudo
 curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
@@ -110,7 +110,7 @@ GOFS_INSTALL_DIR="$HOME/.local/bin" bash -c "$(curl -fsSL https://raw.githubuser
 校验后把二进制放进 `PATH`：
 
 ```sh
-ver=0.1.1
+ver=0.1.2
 base="https://github.com/zxysilent/gofs/releases/download/v${ver}"
 curl -fsSLO "${base}/SHA256SUMS"
 curl -fsSLO "${base}/gofs_${ver}_linux_amd64.tar.gz"
@@ -166,7 +166,7 @@ bash install-deps.sh          # npm install + npm run build
 发布构建会在链接期写入版本号：
 
 ```sh
-go build -trimpath -ldflags "-s -w -X main.version=0.1.1" -o gofs .
+go build -trimpath -ldflags "-s -w -X main.version=0.1.2" -o gofs .
 ```
 
 ## 使用
@@ -323,8 +323,8 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 发布新版本：
 
 ```sh
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 安装脚本读取的就是该 release，因此一行安装命令始终跟随最新 tag。

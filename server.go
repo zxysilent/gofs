@@ -25,7 +25,7 @@ import (
 // the tag at link time: -ldflags "-X main.version=$(git describe --tags)".
 // It is also embedded into the static asset URL prefix, so a mismatch between
 // builds never serves stale assets from a browser cache.
-var version = "0.1.1-dev"
+var version = "0.1.2-dev"
 
 const (
 	indexName              = "index.html"
