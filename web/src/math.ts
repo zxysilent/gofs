@@ -18,9 +18,7 @@ function loadKatex(): Promise<KatexLike | null> {
 }
 
 // 是否需要加载 KaTeX（避免在无公式的文档上触发下载）。
-export function hasMath(html: string): boolean {
-  return html.includes('class="md-math"')
-}
+// renderMath 自己会在没有节点时直接返回，这里不再单独暴露判断函数。
 
 /**
  * renderMath 就地渲染 root 内尚未处理的公式节点。

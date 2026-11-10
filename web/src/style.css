@@ -1326,6 +1326,45 @@ body {
   margin: 0;
 }
 
+/* ---------- 图表（Mermaid） ---------- */
+/* 渲染前显示原始定义，渲染后是内联 SVG。宽图横向滚动，不撑破预览。 */
+.markdown-body .md-diagram {
+  margin: 0 0 12px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.markdown-body .md-diagram-src {
+  margin: 0;
+  padding: 12px;
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.markdown-body .md-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* 语法错误：源码照常可读可复制，错误原因单独一行 */
+.markdown-body .md-diagram[data-state='failed'] .md-diagram-src {
+  border-color: var(--danger);
+}
+
+.markdown-body .md-diagram-error {
+  margin: 6px 0 0;
+  text-align: left;
+  color: var(--danger);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 /* 宽表格横向滚动，不撑破预览 */
 .md-table {
   overflow-x: auto;

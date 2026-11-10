@@ -28,7 +28,10 @@ logging package.
   in the browser
 - In-browser preview: images, video, audio, PDF, Markdown, code, JSON, text
 - Markdown rendering with GFM tables, **math via KaTeX** (`$...$`, `$$...$$`,
-  `\(...\)`, `\[...\]`), images and links resolved relative to the document
+  `\(...\)`, `\[...\]`), **Mermaid diagrams** (```` ```mermaid ```` fences),
+  images and links resolved relative to the document. Both renderers are
+  lazy-loaded only when the document actually needs them, and diagrams are
+  re-themed when you switch light/dark
 - In-place text editing with `Ctrl/Cmd+S` to save and a Markdown preview toggle
 - Live upload progress, zip download of any folder, recursive search
 - Drag the divider to resize the sidebar; long names truncate with an ellipsis
@@ -349,8 +352,9 @@ full parameter table.
 | `utils.go` | URI encoding, glob, range parsing, content types |
 | `noscript.go` | text-client directory listing |
 | `web/` | Vue 3 + TypeScript SPA source (Vite build) |
-| `web/src/markdown.ts` | Markdown parser (tables, lists, math placeholders) |
+| `web/src/markdown.ts` | Markdown parser (tables, lists, math/diagram placeholders) |
 | `web/src/math.ts` | KaTeX loading and math typesetting (lazy) |
+| `web/src/diagram.ts` | Mermaid loading, diagram rendering and theme re-render (lazy) |
 | `web/scripts/` | post-build steps (drops unused font formats) |
 | `web/dist/` | built frontend, embedded into the binary with `go:embed` |
 | `install.sh` | release installer (one-line install) |

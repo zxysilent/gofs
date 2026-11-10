@@ -24,7 +24,9 @@
 - **亮色 / 暗色 / 自动主题** 与 **中文 / 英文界面**，偏好保存在浏览器本地
 - 在线预览：图片、视频、音频、PDF、Markdown、代码、JSON、纯文本
 - Markdown 渲染支持 GFM 表格、**KaTeX 公式**（`$...$`、`$$...$$`、`\(...\)`、
-  `\[...\]`），图片与链接按文档所在目录解析相对路径
+  `\[...\]`）、**Mermaid 图表**（```` ```mermaid ```` 代码块），图片与链接按文档
+  所在目录解析相对路径。两种渲染器都只在文档确实需要时才按需加载，
+  切换亮色 / 暗色时图表会重新配色
 - 文本就地编辑，`Ctrl/Cmd+S` 保存，Markdown 可切换预览
 - 上传实时进度、任意目录打包下载、递归搜索
 - 分隔条可拖动调整侧栏宽度；过长名称自动省略号截断
@@ -328,8 +330,9 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 | `utils.go` | URI 编码、glob、range 解析、内容类型 |
 | `noscript.go` | 面向文本客户端的目录列表 |
 | `web/` | Vue 3 + TypeScript SPA 源码（Vite 构建） |
-| `web/src/markdown.ts` | Markdown 解析（表格、列表、公式占位） |
+| `web/src/markdown.ts` | Markdown 解析（表格、列表、公式/图表占位） |
 | `web/src/math.ts` | KaTeX 按需加载与公式排版 |
+| `web/src/diagram.ts` | Mermaid 按需加载、图表渲染与主题重绘 |
 | `web/scripts/` | 构建后处理（剔除无用字体格式） |
 | `web/dist/` | 构建后的前端产物，通过 `go:embed` 内嵌进二进制 |
 | `install.sh` | 发布版安装脚本（一行命令安装） |

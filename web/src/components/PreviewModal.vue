@@ -6,9 +6,11 @@ import { fileKind, formatSize, formatTime } from '../utils'
 import { absUrl, readText, fileHash, saveFile } from '../api'
 import { renderMarkdown } from '../markdown'
 import { renderMath } from '../math'
+import { renderDiagrams } from '../diagram'
 import { ICONS } from '../icons'
 import { showToast, showConfirmDialog, copyText } from '../dialog'
 import { t } from '../i18n'
+import { resolvedTheme } from '../theme'
 
 const props = defineProps<{ item: PathItem; path: string; allowUpload: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()
@@ -48,13 +50,14 @@ const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: d
 const bodyRef = ref<HTMLElement | null>(null)
 const mdPreviewRef = ref<HTMLElement | null>(null)
 
-// 内容变化后把公式占位节点替换为排版结果（KaTeX 按需加载）。
+// 内容变化后把公式/图表占位节点替换为真实渲染结果（KaTeX 与 Mermaid 均按需加载）。
 // 两个容器互斥：只读预览用 bodyRef，编辑态预览用 mdPreviewRef。
 watch(
-  [bodyHtml, mdRendered, mdPreview],
+  [bodyHtml, mdRendered, mdPreview, resolvedTheme],
   async () => {
     await nextTick()
     await renderMath(bodyRef.value ?? mdPreviewRef.value)
+    await renderDiagrams(bodyRef.value ?? mdPreviewRef.value, resolvedTheme.value)
   },
   { flush: 'post' },
 )

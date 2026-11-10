@@ -5,6 +5,8 @@
 // links, bare autolinks, bold/italic/strikethrough, inline code and math
 // (KaTeX-compatible placeholders, rendered by ./math.ts).
 //
+// ```mermaid fences become placeholders too; ./diagram.ts renders them.
+//
 // Images and links may be relative to the document; pass `baseUrl` (the
 // absolute directory URL, ending with "/") so they resolve against it instead
 // of against the current page.
@@ -57,6 +59,14 @@ function isMathFence(line: string): boolean {
 function mathNode(tex: string, display: boolean): string {
   const tag = display ? 'div' : 'span'
   return `<${tag} class="${MATH_CLASS}" data-display="${display ? '1' : '0'}">${esc(tex)}</${tag}>`
+}
+
+// ---- diagrams ----
+// ```mermaid 围栏转成带原始定义的占位节点；真正的渲染在 diagram.ts 里按需进行。
+const DIAGRAM_CLASS = 'md-diagram'
+
+function diagramNode(source: string): string {
+  return `<div class="${DIAGRAM_CLASS}"><pre class="md-diagram-src">${esc(source)}</pre></div>`
 }
 
 // splitRow breaks a table row into trimmed cells, honouring `\|` escapes.
@@ -114,6 +124,12 @@ export function renderMarkdown(src: string, opts?: MarkdownOptions): string {
         i++
       }
       i++ // consume the closing fence
+      // ```mermaid：输出带原始定义的占位节点，图由 diagram.ts 按需渲染。
+      // 这里不直接渲染，Mermaid 体积远大于应用本身，且渲染是异步的。
+      if (lang.toLowerCase() === 'mermaid') {
+        out.push(diagramNode(buf.join('\n')))
+        continue
+      }
       const cls = lang ? ` class="language-${esc(lang)}"` : ''
       out.push(`<pre><code${cls}>${esc(buf.join('\n'))}</code></pre>`)
       continue

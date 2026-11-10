@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "katex": "^0.16.11",
+    "mermaid": "^11.17.2",
     "vue": "^3.4.27"
   },
   "devDependencies": {
