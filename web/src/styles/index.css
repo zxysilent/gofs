@@ -1163,6 +1163,15 @@ body {
   position: relative;
 }
 
+/* 切换预览 / 编辑时内容高度会变（只读正文可能有滚动条，撑满的编辑器没有），
+   滚动条一出现一消失，正文宽度就跳 10px —— 看起来像整个界面闪了一下。
+   这里始终预留滚动条槽位，宽度保持恒定；滑块本身仍是透明的，不影响观感。 */
+.preview-body,
+.editor-preview,
+.editor-textarea {
+  scrollbar-gutter: stable;
+}
+
 .preview-center {
   display: flex;
   align-items: center;
@@ -1651,6 +1660,9 @@ body {
   width: 100%;
   height: 100%;
   min-height: 0;
+  /* textarea 默认 inline-block，行盒的基线会多出几像素，让父容器凭空出现
+     一条几乎不能滚动的滚动条 —— 改成块级就严丝合缝了。 */
+  display: block;
   resize: none;
   border: 1px solid var(--border);
   border-radius: 6px;
