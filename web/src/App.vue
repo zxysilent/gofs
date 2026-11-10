@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import type { IndexData, ListParams, PathItem, SortKey, SortOrder, UploadTask } from './types'
 import { baseName, joinRelPath, normalizeRelPath, parentRelPath, isDir, HELP_ROUTE, isHelpRoute } from './types'
 import {
-  initialData, listDir, absUrl, hashUrl, parseHash, uploadFile,
+  initialData, listDir, absUrl, dirUrl, parseHash, pathFromLocation, uploadFile,
   deletePath, mkdir, createFile, movePath,
 } from './api'
 import { showInputDialog, showConfirmDialog, showToast, copyText } from './dialog'
@@ -88,17 +88,14 @@ async function onTreeAction(payload: { action: string; path: string; name: strin
 }
 
 async function refresh() {
-  await navigate(relPath.value)
+  await navigate(relPath.value, { replace: true })
 }
 
-// Guard against the hashchange handler re-entering navigate for the same
-// navigation we just triggered programmatically.
-let suppressHashEvent = false
-
-async function navigate(path: string) {
+async function navigate(path: string, opts?: { replace?: boolean }) {
   path = normalizeRelPath(path)
 
   // 特殊路由：接口手册页（展示 /gofs-agent.md），不请求服务端目录数据。
+  // 该路由服务端不存在，只能放在 hash 里，刷新时才不会 404。
   if (isHelpRoute(path)) {
     loading.value = false
     error.value = ''
@@ -106,8 +103,9 @@ async function navigate(path: string) {
     document.title = t('app.agentDocTitle')
     const target = '#' + HELP_ROUTE
     if (location.hash !== target) {
-      suppressHashEvent = true
-      location.hash = target
+      const url = location.pathname + location.search + target
+      if (opts?.replace) history.replaceState(null, '', url)
+      else history.pushState(null, '', url)
     }
     return
   }
@@ -123,11 +121,13 @@ async function navigate(path: string) {
     relPath.value = normalizeRelPath(d.href || path)
     listedPaths = d.paths
     document.title = `Index of ${relPath.value} - gofs`
-    // update the URL hash (client-side route) without a full page load
-    const target = '#' + relPath.value
-    if (location.hash !== target) {
-      suppressHashEvent = true
-      location.hash = target
+    // 目录用真实路径写入地址栏（不再往 hash 里塞一遍路径）。
+    // 与当前地址一致时不产生多余的历史记录；refresh 走 replace。
+    const target = dirUrl(relPath.value)
+    const current = location.pathname + location.search
+    if (current !== target) {
+      if (opts?.replace) history.replaceState(null, '', target)
+      else history.pushState(null, '', target)
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
@@ -296,33 +296,37 @@ function onDownloadItemArchive(item: PathItem) {
   downloadZip(joinRelPath(relPath.value, item.name), item.name)
 }
 
-// ---- hash routing ----
-function onHashChange() {
-  // ignore the hashchange we triggered ourselves inside navigate()
-  if (suppressHashEvent) {
-    suppressHashEvent = false
+// ---- 路由 ----
+// 目录用真实路径（History API），因此前进/后退走 popstate；
+// 帮助页仍在使用 hash，所以 hashchange 也要监听。
+function syncFromLocation() {
+  if (location.hash && location.hash !== '#' && isHelpRoute(parseHash())) {
+    if (relPath.value !== HELP_ROUTE) void navigate(HELP_ROUTE, { replace: true })
     return
   }
-  const p = parseHash()
-  if (normalizeRelPath(p) !== relPath.value) {
-    navigate(p)
-  }
+  const p = pathFromLocation()
+  if (normalizeRelPath(p) !== relPath.value) void navigate(p, { replace: true })
 }
 
 onMounted(() => {
   document.title = `Index of ${relPath.value} - gofs`
-  window.addEventListener('hashchange', onHashChange)
-  // 有 hash（深链 / 刷新）时以它为准。
+  window.addEventListener('popstate', syncFromLocation)
+  window.addEventListener('hashchange', syncFromLocation)
+
+  // 带 hash 的地址：帮助页，或旧版本的 #/a/b 链接 —— 都以 hash 为准。
   if (location.hash && location.hash !== '#') {
     const hp = normalizeRelPath(parseHash())
-    if (hp !== relPath.value) navigate(hp)
-    else history.replaceState(null, '', hashUrl(relPath.value))
+    if (hp !== relPath.value) {
+      void navigate(hp, { replace: true })
+    } else {
+      const url = isHelpRoute(hp) ? location.pathname + '#' + HELP_ROUTE : dirUrl(relPath.value)
+      history.replaceState(null, '', url)
+    }
     return
   }
-  // 没有 hash：说明是直接打开了某个目录 URL（如"在新标签页打开"、书签）。
-  // 此时服务端已按该路径渲染了数据，relPath 就是正确的当前目录，
-  // 不能因为 parseHash() 返回 '/' 就把用户送回根目录。只把 URL 补成规范形式。
-  history.replaceState(null, '', hashUrl(relPath.value))
+  // 直接打开了某个目录 URL（新窗口打开、书签、刷新）时，服务端已按该路径
+  // 渲染了数据，relPath 就是当前目录；把地址规范成不含多余参数的规范形式。
+  history.replaceState(null, '', dirUrl(relPath.value))
 })
 
 // ---- 可拖动分栏 ----
@@ -356,7 +360,8 @@ function stopDrag() {
 }
 
 onBeforeUnmount(() => {
-  window.removeEventListener('hashchange', onHashChange)
+  window.removeEventListener('popstate', syncFromLocation)
+  window.removeEventListener('hashchange', syncFromLocation)
   stopDrag()
 })
 </script>
