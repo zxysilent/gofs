@@ -81,6 +81,7 @@ export async function listDir(relPath: string, params: ListParams): Promise<Inde
   if (params.q) qs.set('q', params.q)
   if (params.sort) qs.set('sort', params.sort)
   if (params.order) qs.set('order', params.order)
+  if (params.dirsOnly) qs.set('dirs', '')
   const res = await fetch(absUrl(relPath, qs.toString()))
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}`)

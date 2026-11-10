@@ -128,6 +128,9 @@ const zh: Record<string, string> = {
   'sidebar.copyUrlTitle': '复制原始 Markdown 地址',
   'sidebar.copiedUrl': '已复制地址: {url}',
   'sidebar.copyUrlFailed': '复制失败: {url}',
+  'sidebar.filterPlaceholder': '过滤目录…',
+  'sidebar.filterEmpty': '没有匹配的目录',
+  'sidebar.collapseAll': '全部折叠',
 
   // preview
   'preview.edit': '编辑',
@@ -264,6 +267,9 @@ const en: Record<string, string> = {
   'sidebar.copyUrlTitle': 'Copy the raw Markdown URL',
   'sidebar.copiedUrl': 'URL copied: {url}',
   'sidebar.copyUrlFailed': 'Copy failed: {url}',
+  'sidebar.filterPlaceholder': 'Filter folders…',
+  'sidebar.filterEmpty': 'No matching folders',
+  'sidebar.collapseAll': 'Collapse all',
 
   // preview
   'preview.edit': 'Edit',

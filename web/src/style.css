@@ -18,6 +18,9 @@
   --kind-archive: #d97706;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   --radius: 8px;
+  /* 目录树：每层缩进与层级引导线颜色 */
+  --tree-indent: 16px;
+  --tree-guide: #d8dde5;
   /* naive-ui 风格的滚动条滑块：默认透明，hover 时才浮现 */
   --scrollbar-thumb: rgba(0, 0, 0, 0.18);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.32);
@@ -45,6 +48,7 @@
   --kind-media: #a78bfa;
   --kind-archive: #fbbf24;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --tree-guide: #323945;
   --scrollbar-thumb: rgba(255, 255, 255, 0.20);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.36);
   color-scheme: dark;
@@ -67,8 +71,7 @@
 .editor-preview,
 .help-content,
 .help-page-body,
-.editor-textarea,
-.tree-children {
+.editor-textarea {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
@@ -82,8 +85,7 @@
 .editor-preview:hover,
 .help-content:hover,
 .help-page-body:hover,
-.editor-textarea:hover,
-.tree-children:hover {
+.editor-textarea:hover {
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
@@ -238,6 +240,112 @@ body {
   padding: 2px 8px 12px;
 }
 
+/* 目录工具行：过滤输入框 + 全部折叠（固定在滚动区外） */
+.tree-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 8px 6px;
+}
+
+.tree-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tree-filter:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.tree-filter-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+  color: var(--text-secondary);
+}
+
+.tree-filter-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+.tree-filter-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.tree-filter-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.tree-filter-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.tree-filter-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tree-filter-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tree-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-panel);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tree-tool-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.tree-tool-btn svg {
+  display: block;
+}
+
 .sidebar-label {
   display: flex;
   align-items: center;
@@ -339,10 +447,24 @@ body {
   padding: 0;
 }
 
+/* 每层缩进 --tree-indent，并在父级折叠箭头正下方画一条竖直引导线，
+   深色长树下才看得清层级边界。线的位置 = 行内 8px padding + 折叠箭头半宽 7px。 */
 .tree-children {
+  position: relative;
   list-style: none;
   margin: 0;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 var(--tree-indent);
+}
+
+.tree-children::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 4px;
+  left: 15px;
+  width: 1px;
+  background: var(--tree-guide);
+  pointer-events: none;
 }
 
 .tree-node {
@@ -350,16 +472,17 @@ body {
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 34px;
-  /* 默认不给按钮留位置，名称铺满整行；hover 时才让出右侧空间 */
+  height: 28px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: 5px;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   color: var(--text);
-  font-size: 15px;
-  transition: padding-right 0.12s ease;
+  font-size: 14px;
+  user-select: none;
+  /* 操作按钮浮在行内，取行当前底色做渐隐遮罩 */
+  --tree-row-bg: transparent;
 }
 
 /* 树内图标与文字垂直居中（只作用于图标 span，不能影响 .tree-name 文字） */
@@ -367,41 +490,101 @@ body {
   display: inline-flex;
   align-items: center;
   line-height: 0;
+  flex-shrink: 0;
+  color: var(--warn);
 }
 
 .tree-icon svg {
   display: block;
 }
 
+/* 空目录用弱化的空心图标，一眼区分"有内容"与"没内容" */
+.tree-node.empty .tree-icon {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
 .tree-node:hover {
   background: var(--bg-hover);
-  /* 鼠标移入时名称变短，为浮层按钮腾出位置 */
-  padding-right: 60px;
+  --tree-row-bg: var(--bg-hover);
 }
 
 .tree-node.active {
   background: var(--bg-active);
   color: var(--accent);
   font-weight: 600;
+  --tree-row-bg: var(--bg-active);
+}
+
+/* 键盘漫游焦点：只在键盘操作时出现，鼠标点击不显示 */
+.tree-node.focused:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 依赖 / 隐藏目录弱化，避免抢注意力 */
+.tree-node.dim {
+  opacity: 0.55;
+}
+
+.tree-node.dim:hover {
+  opacity: 0.85;
+}
+
+/* 子目录加载失败 */
+.tree-node.failed .tree-icon {
+  color: var(--danger);
 }
 
 .tree-toggle {
   width: 14px;
+  height: 14px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-secondary);
+  border-radius: 3px;
 }
 
-.tree-icon {
+.tree-node:hover .tree-toggle {
+  color: var(--text);
+}
+
+.tree-chevron {
+  display: inline-flex;
+  line-height: 0;
+}
+
+/* 加载指示器占折叠箭头的位置，点击后立刻有反馈 */
+.tree-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.tree-spinner .spinner {
+  width: 10px;
+  height: 10px;
+  border-width: 1.5px;
+}
+
+/* 过滤结果里的父级路径，弱化显示 */
+.tree-path {
   flex-shrink: 0;
-  color: var(--warn);
-}
-
-.tree-name {
+  max-width: 45%;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.tree-hint {
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 /* ---------- Main ---------- */
@@ -1521,6 +1704,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  /* 左侧渐隐过渡到行底色，避免按钮直接压在名称上显得生硬。
+     名称宽度全程不变，鼠标移入不会二次截断、不会跳动。 */
+  padding-left: 16px;
+  border-radius: 0 5px 5px 0;
+  background: linear-gradient(to right, transparent, var(--tree-row-bg) 16px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s;

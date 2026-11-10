@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../types'
 import { listDir, absUrl, readText } from '../api'
 import { ICONS } from '../icons'
 import { copyText, showToast } from '../dialog'
 import { locale, t, toggleLocale } from '../i18n'
-import { themeMode, resolvedTheme, cycleTheme } from '../theme'
+import { themeMode, cycleTheme } from '../theme'
 import { HELP_CONTENT } from '../help-content'
 import TreeNodeComp from './TreeNode.vue'
 
@@ -20,6 +20,116 @@ const emit = defineEmits<{
 // 因此不受仓库规模限制，也不会出现"节点预算耗尽后兄弟目录消失"的问题。
 const topNodes = reactive<TreeNode[]>([])
 const showHelp = ref(false)
+
+/* ---------- 目录树：过滤 / 键盘焦点 / 展开态持久化 ---------- */
+
+// 树滚动容器，用于把当前选中项滚进可视区。
+const treeBodyRef = ref<HTMLElement | null>(null)
+// 键盘漫游焦点（roving tabindex）。与"当前目录"分离：移动焦点不等于导航。
+const focusedPath = ref('')
+
+// 展开状态存 localStorage，刷新页面后目录树不会整体塌陷回根目录。
+const EXPANDED_KEY = 'gofs.tree.expanded'
+
+function readExpanded(): string[] {
+  try {
+    const arr = JSON.parse(localStorage.getItem(EXPANDED_KEY) || '[]')
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function saveExpanded() {
+  // 根目录还没加载好时写入，会用空数组把用户上次的展开状态抹掉，
+  // 因此只在树真正就绪后才持久化。
+  if (!topNodes.length) return
+  const paths: string[] = []
+  const walk = (nodes: TreeNode[]) => {
+    for (const n of nodes) {
+      if (n.expanded) {
+        paths.push(n.path)
+        if (n.children.length) walk(n.children)
+      }
+    }
+  }
+  walk(topNodes)
+  try {
+    localStorage.setItem(EXPANDED_KEY, JSON.stringify(paths))
+  } catch {
+    /* 隐私模式 / 配额不足时静默放弃持久化 */
+  }
+}
+
+// 扁平化"当前可见"的节点序列，供键盘上下移动使用。
+const visibleNodes = computed<TreeNode[]>(() => {
+  const out: TreeNode[] = []
+  const walk = (nodes: TreeNode[]) => {
+    for (const n of nodes) {
+      out.push(n)
+      if (n.expanded && n.children.length) walk(n.children)
+    }
+  }
+  walk(topNodes)
+  return out
+})
+
+// 整棵树里只有一个 treeitem 处于 tab 顺序中（roving tabindex）。
+const tabStopPath = computed(() => {
+  const list = visibleNodes.value
+  if (focusedPath.value && list.some((n) => n.path === focusedPath.value)) return focusedPath.value
+  return list[0]?.path ?? ''
+})
+
+/* ---------- 目录过滤 ---------- */
+
+const filterText = ref('')
+const filterLoading = ref(false)
+const filterResults = ref<{ path: string; name: string; dir: string }[]>([])
+const filtering = computed(() => filterText.value.trim() !== '')
+
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(filterText, (val) => {
+  if (filterTimer) clearTimeout(filterTimer)
+  const q = val.trim()
+  if (!q) {
+    filterResults.value = []
+    filterLoading.value = false
+    return
+  }
+  filterLoading.value = true
+  filterTimer = setTimeout(() => void runFilter(q), 250)
+})
+
+// 目录过滤复用服务端的递归搜索接口，因此未展开的层级也能搜到，
+// 不依赖树的加载状态，也不会因为懒加载而漏结果。
+async function runFilter(q: string) {
+  try {
+    // dirsOnly：只返回匹配的目录，文件不必穿回来再丢掉。
+    const data = await listDir('/', { q, sort: 'name', order: 'asc', dirsOnly: true })
+    if (filterText.value.trim() !== q) return // 结果已过期
+    filterResults.value = (data.paths || [])
+      .filter((p) => p.path_type.endsWith('Dir'))
+      .map((p) => {
+        const full = normalizeRelPath('/' + p.name)
+        const cut = full.lastIndexOf('/')
+        return {
+          path: full,
+          name: full.slice(cut + 1),
+          dir: cut <= 0 ? '/' : full.slice(0, cut),
+        }
+      })
+  } catch {
+    if (filterText.value.trim() === q) filterResults.value = []
+  } finally {
+    if (filterText.value.trim() === q) filterLoading.value = false
+  }
+}
+
+function clearFilter() {
+  filterText.value = ''
+}
 
 // 使用说明弹窗分两个 tab，分别面向人类与 agent。
 const activeTab = ref<'human' | 'agent'>('human')
@@ -123,12 +233,8 @@ function dirsOf(items: PathItem[]): PathItem[] {
 }
 
 async function fetchDirItems(path: string): Promise<PathItem[]> {
-  try {
-    const data = await listDir(path, { sort: 'name', order: 'asc', q: '' })
-    return data.paths || []
-  } catch {
-    return []
-  }
+  const data = await listDir(path, { sort: 'name', order: 'asc', q: '' })
+  return data.paths || []
 }
 
 // 用服务端返回的条目刷新某个节点的子目录列表，并尽量复用已有节点
@@ -147,10 +253,20 @@ function applyChildren(node: TreeNode, items: PathItem[]) {
   node.loaded = true
 }
 
-// 首次需要时才加载某个节点的子目录。
+// 首次需要时才加载某个节点的子目录。加载过程置 loading（折叠箭头位置显示
+// spinner），失败则记录 error 并保持未加载，这样用户可以点箭头重试，
+// 而不是把一个请求失败的目录伪装成空目录。
 async function loadNode(node: TreeNode) {
-  if (node.loaded) return
-  applyChildren(node, await fetchDirItems(node.path))
+  if (node.loaded || node.loading) return
+  node.loading = true
+  node.error = undefined
+  try {
+    applyChildren(node, await fetchDirItems(node.path))
+  } catch (e) {
+    node.error = e instanceof Error ? e.message : String(e)
+  } finally {
+    node.loading = false
+  }
 }
 
 async function loadRoot() {
@@ -166,11 +282,44 @@ async function loadRoot() {
   )
 }
 
-// 根目录只加载一次；onNavigated 可能早于组件 onMounted 触发，必须等待它完成，
+// 恢复上次的展开状态：按层级从浅到深展开，已加载过的层级不会重复请求。
+async function restoreExpanded() {
+  const saved = readExpanded()
+  if (!saved.length) return
+  saved.sort((a, b) => a.split('/').length - b.split('/').length)
+  for (const p of saved) await expandTo(p)
+}
+
+async function expandTo(path: string) {
+  const parts = path.split('/').filter(Boolean)
+  let list: TreeNode[] = topNodes
+  let acc = ''
+  for (let i = 0; i < parts.length; i++) {
+    acc = joinRelPath(acc || '/', parts[i])
+    const node = list.find((n) => n.path === acc)
+    if (!node) return
+    if (!node.loaded) await loadNode(node)
+    if (!node.children.length) return
+    node.expanded = true
+    if (i === parts.length - 1) return
+    list = node.children
+  }
+}
+
+// 根目录只加载一次；onNavigated 可能早于组件挂载触发，必须等待它完成，
 // 否则遍历时 topNodes 还是空的，会导致当前目录及其祖先没有进入树。
+// 注意：这里不能让 promise reject，也不能在失败时清空 rootReady——
+// 否则并发调用会各自重新加载根目录，互相覆盖 topNodes，把恢复出来的展开态冲掉。
 let rootReady: Promise<void> | null = null
+let rootFailed = false
 function ensureRoot(): Promise<void> {
-  if (!rootReady) rootReady = loadRoot()
+  if (rootReady && !rootFailed) return rootReady
+  rootFailed = false
+  rootReady = loadRoot()
+    .then(() => restoreExpanded())
+    .catch(() => {
+      rootFailed = true // 下次导航重试
+    })
   return rootReady
 }
 
@@ -183,11 +332,116 @@ async function onToggle(node: TreeNode) {
   if (node.expanded) {
     node.expanded = false
     node.collapsed = true // 记录用户主动折叠，导航刷新时不再自动展开
+    saveExpanded()
     return
   }
+  await openNode(node)
+}
+
+// 展开并加载子目录；确认没有子目录时保持折叠（箭头随之隐藏）。
+async function openNode(node: TreeNode) {
   await loadNode(node)
   node.collapsed = false
   node.expanded = node.children.length > 0
+  saveExpanded()
+}
+
+// 折叠整棵树（键盘/按钮共用），当前目录的高亮仍在，只是被折叠起来。
+function collapseAll() {
+  const walk = (nodes: TreeNode[]) => {
+    for (const n of nodes) {
+      n.expanded = false
+      n.collapsed = true
+      if (n.children.length) walk(n.children)
+    }
+  }
+  walk(topNodes)
+  saveExpanded()
+}
+
+function parentPathOf(path: string): string {
+  const idx = path.lastIndexOf('/')
+  return idx <= 0 ? '/' : path.slice(0, idx)
+}
+
+function nodeEl(path: string): HTMLElement | null {
+  const body = treeBodyRef.value
+  if (!body) return null
+  return body.querySelector<HTMLElement>(`.tree-node[data-path="${CSS.escape(path)}"]`)
+}
+
+// 把某个节点滚进侧栏可视区。不用 scrollIntoView，避免连带滚动外层容器。
+async function revealPath(path: string) {
+  await nextTick()
+  const body = treeBodyRef.value
+  const el = nodeEl(path)
+  if (!body || !el) return
+  const br = body.getBoundingClientRect()
+  const er = el.getBoundingClientRect()
+  const pad = 16
+  if (er.top < br.top + pad) {
+    body.scrollTop -= br.top + pad - er.top
+  } else if (er.bottom > br.bottom - pad) {
+    body.scrollTop += er.bottom - br.bottom + pad
+  }
+}
+
+async function focusNodeAt(index: number) {
+  const list = visibleNodes.value
+  if (!list.length) return
+  const i = Math.min(list.length - 1, Math.max(0, index))
+  focusedPath.value = list[i].path
+  await nextTick()
+  nodeEl(list[i].path)?.focus()
+}
+
+// 目录树的键盘导航：↑↓ 移动、→ 展开/进入、← 折叠/回到父级、Home/End 首尾、Enter 打开。
+function onTreeKeydown(ev: KeyboardEvent, node: TreeNode) {
+  const list = visibleNodes.value
+  const idx = list.findIndex((n) => n.path === node.path)
+  switch (ev.key) {
+    case 'ArrowDown':
+      ev.preventDefault()
+      void focusNodeAt(idx + 1)
+      break
+    case 'ArrowUp':
+      ev.preventDefault()
+      void focusNodeAt(idx - 1)
+      break
+    case 'Home':
+      ev.preventDefault()
+      void focusNodeAt(0)
+      break
+    case 'End':
+      ev.preventDefault()
+      void focusNodeAt(list.length - 1)
+      break
+    case 'ArrowRight':
+      ev.preventDefault()
+      if (node.expanded) void focusNodeAt(idx + 1)
+      else void openNode(node)
+      break
+    case 'ArrowLeft': {
+      ev.preventDefault()
+      if (node.expanded) {
+        node.expanded = false
+        node.collapsed = true
+        saveExpanded()
+        break
+      }
+      const parent = parentPathOf(node.path)
+      if (parent !== '/') {
+        const pi = list.findIndex((n) => n.path === parent)
+        if (pi >= 0) void focusNodeAt(pi)
+      }
+      break
+    }
+    case 'Enter':
+    case ' ':
+      ev.preventDefault()
+      onSelect(node.path)
+      break
+  }
 }
 
 // 导航后由父组件调用：沿当前路径逐层加载并展开祖先目录。
@@ -201,6 +455,8 @@ function onNavigated(path: string, items?: PathItem[]): Promise<void> {
 async function walkTo(path: string, items?: PathItem[]) {
   path = normalizeRelPath(path)
   await ensureRoot()
+  // 键盘焦点跟随当前目录，Tab 进入目录树时能直接落在附近。
+  focusedPath.value = path
   if (path === '/') return
   const parts = path.split('/').filter(Boolean)
   let list: TreeNode[] = topNodes
@@ -208,7 +464,7 @@ async function walkTo(path: string, items?: PathItem[]) {
   for (let i = 0; i < parts.length; i++) {
     acc = joinRelPath(acc || '/', parts[i])
     const node = list.find((n) => n.path === acc)
-    if (!node) return // 该目录不在树中（隐藏或无权限），保持现状
+    if (!node) break // 该目录不在树中（隐藏或无权限），保持现状
     if (i === parts.length - 1) {
       if (items) applyChildren(node, items)
       else await loadNode(node)
@@ -221,7 +477,11 @@ async function walkTo(path: string, items?: PathItem[]) {
     }
     list = node.children
   }
+  saveExpanded()
+  // 深路径下高亮可能落在可视区之外，导航后主动把它滚进视野。
+  await revealPath(path)
 }
+
 
 function onSelect(path: string) {
   emit('navigate', path)
@@ -231,8 +491,13 @@ function onSelect(path: string) {
 async function rebuildTree() {
   topNodes.splice(0, topNodes.length)
   navChain = Promise.resolve()
-  rootReady = loadRoot()
-  await rootReady
+  rootFailed = false
+  rootReady = loadRoot().then(() => restoreExpanded())
+  try {
+    await rootReady
+  } catch {
+    rootFailed = true
+  }
   await walkTo(props.currentPath)
 }
 
@@ -257,16 +522,67 @@ onMounted(() => {
     >
       <span class="sidebar-label-icon" v-html="ICONS.list"></span>{{ t('sidebar.fileList') }}
     </div>
-    <div class="sidebar-body">
-      <ul class="tree">
+    <!-- 过滤目录 + 全部折叠，同样固定在滚动区外 -->
+    <div class="tree-tools">
+      <label class="tree-filter">
+        <span class="tree-filter-icon" v-html="ICONS.search"></span>
+        <input
+          v-model="filterText"
+          class="tree-filter-input"
+          type="text"
+          :placeholder="t('sidebar.filterPlaceholder')"
+          spellcheck="false"
+        />
+        <button
+          v-if="filtering"
+          class="tree-filter-clear"
+          :title="t('common.cancel')"
+          @click="clearFilter"
+          v-html="ICONS.close"
+        ></button>
+      </label>
+      <button
+        class="tree-tool-btn"
+        :title="t('sidebar.collapseAll')"
+        @click="collapseAll"
+        v-html="ICONS.unfoldLess"
+      ></button>
+    </div>
+    <div ref="treeBodyRef" class="sidebar-body">
+      <!-- 过滤结果：平铺展示匹配的目录（未展开的层级也能搜到） -->
+      <ul v-if="filtering" class="tree tree-filter-results" role="tree">
+        <li v-for="hit in filterResults" :key="hit.path">
+          <div
+            class="tree-node"
+            :class="{ active: hit.path === currentPath }"
+            role="treeitem"
+            tabindex="0"
+            :title="hit.path"
+            @click="onSelect(hit.path)"
+            @keydown.enter.prevent="onSelect(hit.path)"
+          >
+            <span class="tree-icon" v-html="ICONS.folder"></span>
+            <span class="tree-name">{{ hit.name }}</span>
+            <span class="tree-path">{{ hit.dir }}</span>
+          </div>
+        </li>
+        <li v-if="filterLoading" class="tree-hint">{{ t('common.loading') }}</li>
+        <li v-else-if="!filterResults.length" class="tree-hint">
+          {{ t('sidebar.filterEmpty') }}
+        </li>
+      </ul>
+      <ul v-else class="tree" role="tree" :aria-label="t('sidebar.fileList')">
         <TreeNodeComp
           v-for="node in topNodes"
           :key="node.path"
           :node="node"
           :current-path="currentPath"
+          :focused-path="tabStopPath"
           @select="onSelect"
           @toggle="onToggle"
           @action="emit('action', $event)"
+          @focus="focusedPath = $event"
+          @keydown="onTreeKeydown"
         />
       </ul>
     </div>

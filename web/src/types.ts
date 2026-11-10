@@ -29,6 +29,10 @@ export interface TreeNode {
   expanded: boolean
   loaded: boolean
   collapsed?: boolean
+  /** 正在请求子目录（用于折叠箭头位置显示 spinner）。 */
+  loading?: boolean
+  /** 子目录加载失败的原始错误信息；存在时节点显示警示图标并可重试。 */
+  error?: string
   children: TreeNode[]
 }
 
@@ -53,6 +57,8 @@ export interface ListParams {
   sort: SortKey
   order: SortOrder
   q: string
+  /** 仅搜索模式有效：只返回匹配的目录（目录树过滤用）。 */
+  dirsOnly?: boolean
 }
 
 export function isDir(item: PathItem): boolean {

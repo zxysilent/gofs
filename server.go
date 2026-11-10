@@ -850,7 +850,12 @@ func (s *Server) handleSearchDir(path string, q url.Values, headOnly bool, user 
 		return s.handleLsDir(path, true, q, headOnly, user, accessPaths, w)
 	}
 	if !headOnly {
-		for _, sp := range s.collectDirEntries(path, accessPaths, func(p string, isFile bool) bool {
+		// 默认搜索只返回文件（文件列表用）；目录树过滤传 dirs 只拿匹配的目录。
+		dirsOnly := hasQueryFlag(q, "dirs")
+		for _, sp := range s.collectDirEntries(path, accessPaths, func(p string, isDir bool) bool {
+			if isDir != dirsOnly {
+				return false
+			}
 			return strings.Contains(strings.ToLower(getFileName(p)), search)
 		}) {
 			if item, err := s.toPathItem(sp, path); err == nil && item != nil {
@@ -897,7 +902,8 @@ func (s *Server) setupZipCompressor(zw *zip.Writer) {
 }
 
 func (s *Server) zipDir(zw *zip.Writer, dir string, accessPaths *AccessPaths) error {
-	for _, file := range s.collectDirEntries(dir, accessPaths, func(p string, isFile bool) bool { return isFile }) {
+	// 只要文件：zip 会自己创建目录条目。
+	for _, file := range s.collectDirEntries(dir, accessPaths, func(_ string, isDir bool) bool { return !isDir }) {
 		rel, err := filepath.Rel(dir, file)
 		if err != nil {
 			continue
@@ -1418,8 +1424,10 @@ func (s *Server) toPathItem(p, basePath string) (*PathItem, error) {
 }
 
 // collectDirEntries walks directories (following symlinks) and returns matching
-// file paths.
-func (s *Server) collectDirEntries(base string, accessPaths *AccessPaths, include func(p string, isFile bool) bool) []string {
+// entries. include receives every entry plus whether it is a directory, so a
+// caller can ask for files only (file list search, zip packaging) or
+// directories only (the sidebar tree filter).
+func (s *Server) collectDirEntries(base string, accessPaths *AccessPaths, include func(p string, isDir bool) bool) []string {
 	var paths []string
 	for _, entry := range accessPaths.entryPaths(base) {
 		visited := map[string]bool{}
@@ -1461,9 +1469,14 @@ func (s *Server) collectDirEntries(base string, accessPaths *AccessPaths, includ
 				for _, e := range entries {
 					rec(filepath.Join(p, e.Name()), false)
 				}
+				// 目录在这次遍历中不会继续交给 include 之外的地方，
+				// 只有调用方声明要目录（目录树过滤）时才收集它本身。
+				if include(p, true) {
+					paths = append(paths, p)
+				}
 				return
 			}
-			if !include(p, true) {
+			if !include(p, false) {
 				return
 			}
 			paths = append(paths, p)
