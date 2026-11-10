@@ -193,8 +193,8 @@ Options:
       --render-try-index     Serve index.html when requesting a directory, returns directory listing if not found index.html
       --render-spa           Serve SPA (Single Page Application)
       --assets <path>        Set the path to the assets directory for overriding the built-in assets
-      --log-format <format>  Customize http log format
       --log-file <file>      Specify the file to save logs to, other than stdout/stderr
+      --log-level <level>    Set the log level [default: info] [possible values: debug, info, warn, error]
       --compress <level>     Set zip compress level [default: low] [possible values: none, low, medium, high]
       --completions <shell>  Print shell completion script for <shell>
       --tls-cert <path>      Path to an SSL/TLS certificate to serve with HTTPS
@@ -223,6 +223,36 @@ gofs -a 'admin:123@/:rw'
 
 # HTTPS
 gofs --tls-cert cert.pem --tls-key key.pem
+```
+
+## 访问日志
+
+每个请求一行结构化记录，字段固定 —— 不需要维护格式模板，也不会把时间戳再
+拼一次塞进引号包裹的消息里：
+
+```
+time=2026-11-10T15:45:48.350 level=INF trace=cpecek45 caller=api-end ip=127.0.0.1 method=GET uri=/gamma status=200 size=425 dur=258.765µs
+```
+
+| 字段 | 含义 |
+|------|------|
+| `trace` | 请求 id，同时作为 `X-Request-ID` 响应头返回 |
+| `caller` | `api-end`；开启 debug 日志时另有 `api-begin` |
+| `ip` | 客户端地址 |
+| `method` / `uri` | 请求方法与路径（已解码，控制字符已转义） |
+| `status` / `size` / `dur` | 响应状态码、响应体字节数、处理耗时 |
+| `user` | 已认证用户，存在时才有 |
+| `err` | 错误信息，仅出错时出现（error 级别） |
+
+请求若携带合法的上游 `X-Request-ID`（8–64 位字母数字）会直接复用，因此在反向
+代理后面 trace 依然连贯。静态资源不记录访问日志。
+
+`--log-level debug` 会额外输出一行 `api-begin`，与 `api-end` 共享同一个 `trace`，
+便于把慢请求的开始与结束对上：
+
+```sh
+# 追踪单个请求的完整过程
+grep 'trace=cpecek45' gofs.log
 ```
 
 ## 内置虚拟文档
@@ -292,7 +322,7 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 | `server.go` | HTTP + WebDAV 请求处理、内嵌资源服务 |
 | `docs.go` | 内置虚拟 Markdown 文档（中英双语） |
 | `auth.go` | 访问控制、Basic/Digest 认证、sha512-crypt |
-| `logger.go` | 可自定义的访问日志格式 |
+| `logger.go` | 结构化访问日志（固定字段，按请求追踪 trace） |
 | `utils.go` | URI 编码、glob、range 解析、内容类型 |
 | `noscript.go` | 面向文本客户端的目录列表 |
 | `web/` | Vue 3 + TypeScript SPA 源码（Vite 构建） |

@@ -25,7 +25,7 @@ import (
 // the tag at link time: -ldflags "-X main.version=$(git describe --tags)".
 // It is also embedded into the static asset URL prefix, so a mismatch between
 // builds never serves stale assets from a browser cache.
-var version = "0.1.2-dev"
+var version = "0.1.3-dev"
 
 const (
 	indexName              = "index.html"
@@ -180,11 +180,12 @@ func newServer(args Args, running *atomic.Bool) (*Server, error) {
 	}, nil
 }
 
-// responseWriter records the status code.
+// responseWriter records the status code and the number of body bytes written.
 type responseWriter struct {
 	http.ResponseWriter
 	status      int
 	wroteHeader bool
+	size        int64
 }
 
 func (w *responseWriter) WriteHeader(code int) {
@@ -199,30 +200,42 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	if !w.wroteHeader {
 		w.WriteHeader(http.StatusOK)
 	}
-	return w.ResponseWriter.Write(b)
+	n, err := w.ResponseWriter.Write(b)
+	w.size += int64(n)
+	return n, err
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+
+	// 静态资源不记录访问日志，也就不需要 trace。
+	// s.assetsPrefix 不带前导斜杠（例如 "__gofs_v0.1.2__/"），而 r.URL.Path
+	// 一定以 "/" 开头，所以用 "/"+prefix 判断；带版本号的前缀不会误伤普通文件。
+	logging := s.args.accessLog != nil && !strings.Contains(r.URL.Path, "/"+s.assetsPrefix)
+	trace := ""
+	if logging {
+		trace = requestTrace(r)
+		rw.Header().Set(requestIDHeader, trace)
+		s.args.accessLog.begin(r, trace)
+	}
 	if s.args.enableCors {
 		addCors(rw)
 	}
-	data := s.args.httpLogger.data(r)
-	data["remote_addr"] = remoteIP(r.RemoteAddr)
 
 	err := s.handle(rw, r)
 	if err != nil && !rw.wroteHeader {
 		rw.WriteHeader(http.StatusInternalServerError)
 		io.WriteString(rw, "Internal Server Error")
 	}
-	data["status"] = strconv.Itoa(rw.status)
-	if !strings.HasPrefix(r.URL.Path, s.assetsPrefix) {
-		if err != nil {
-			s.args.httpLogger.log(data, err.Error())
-		} else {
-			s.args.httpLogger.log(data, "")
-		}
+	if !logging {
+		return
 	}
+	errMsg := ""
+	if err != nil {
+		errMsg = err.Error()
+	}
+	s.args.accessLog.end(r, trace, rw.status, rw.size, time.Since(start), errMsg)
 }
 
 func (s *Server) handle(w *responseWriter, r *http.Request) error {

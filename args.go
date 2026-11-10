@@ -60,10 +60,11 @@ type Args struct {
 	renderSpA      bool
 	renderTryIndex bool
 	enableCors     bool
-	assets         string // "" means built-in assets
-	errorPage      string // "" means none
-	httpLogger     HttpLogger
+	assets         string        // "" means built-in assets
+	errorPage      string        // "" means none
+	accessLog      *accessLogger // nil 表示关闭访问日志
 	logFile        string
+	logLevel       string // "" means info
 	compress       Compress
 	tlsCert        string
 	tlsKey         string
@@ -75,12 +76,12 @@ func defaultArgs() Args {
 		addrs = append(addrs, BindAddr{addr: "::", isIP: true})
 	}
 	return Args{
-		servePath:  ".",
-		addrs:      addrs,
-		port:       5000,
-		auth:       mustAccessControl(nil),
-		httpLogger: defaultHttpLogger(),
-		compress:   compressLow,
+		servePath: ".",
+		addrs:     addrs,
+		port:      5000,
+		auth:      mustAccessControl(nil),
+		accessLog: &accessLogger{},
+		compress:  compressLow,
 	}
 }
 
@@ -115,8 +116,8 @@ var valueOpts = map[string]string{ // long -> canonical
 	"--hidden":      "hidden",
 	"--auth":        "auth",
 	"--assets":      "assets",
-	"--log-format":  "log-format",
 	"--log-file":    "log-file",
+	"--log-level":   "log-level",
 	"--compress":    "compress",
 	"--tls-cert":    "tls-cert",
 	"--tls-key":     "tls-key",
@@ -381,11 +382,11 @@ func loadConfig(path string) (Args, error) {
 	if v, ok := m["assets"].(string); ok {
 		args.assets = v
 	}
-	if v, ok := m["log-format"].(string); ok {
-		args.httpLogger = parseHttpLogger(v)
-	}
 	if v, ok := m["log-file"].(string); ok {
 		args.logFile = v
+	}
+	if v, ok := m["log-level"].(string); ok {
+		args.logLevel = v
 	}
 	if v, ok := m["compress"].(string); ok {
 		if c, err := parseCompress(v); err == nil {
@@ -549,16 +550,14 @@ func parseArgs(argv []string) (*parseResult, error) {
 		}
 	}
 
-	// log format
-	if v := firstNonEmpty(cliValue(cli, "log-format"), os.Getenv("GOFS_LOG_FORMAT")); v != "" {
-		args.httpLogger = parseHttpLogger(v)
-	} else if cliSet(cli, "log-format") {
-		args.httpLogger = parseHttpLogger("")
-	}
-
 	// log file
 	if v := firstNonEmpty(cliValue(cli, "log-file"), os.Getenv("GOFS_LOG_FILE")); v != "" {
 		args.logFile = v
+	}
+
+	// log level
+	if v := firstNonEmpty(cliValue(cli, "log-level"), os.Getenv("GOFS_LOG_LEVEL")); v != "" {
+		args.logLevel = v
 	}
 
 	// compress

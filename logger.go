@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -10,173 +10,124 @@ import (
 	"github.com/zxysilent/logs"
 )
 
-const defaultLogFormat = `$time_iso8601 $log_level - $remote_addr "$request" $status`
+// 访问日志使用固定的结构化字段，不支持自定义模板。
+//
+// 旧实现（Nginx 风格模板）把所有信息拼成一行塞进 msg=，日志里还会再出现一份
+// 时间戳，引号也必须转义，机器很难解析：
+//
+//	time=2026-11-10T13:04:28.044 level=INF msg="2026-11-10T13:04:28+08:00 INFO - 2.0.0.208 \"GET /a.md\" 200"
+//
+// 现在每个请求输出一行（--log-level debug 时前面多一行 api-begin）：
+//
+//	time=2026-11-10T13:04:28.044 level=INF trace=x48572hm caller=api-end ip=127.0.0.1 method=GET uri=/a.md status=200 size=260 dur=824.084µs
+//
+// 字段含义：
+//
+//	trace   本次请求的 id，同时通过响应头 X-Request-ID 返回，便于对照
+//	caller  api-begin / api-end，同一次请求的两行共享 trace
+//	ip      客户端地址
+//	method  HTTP 方法
+//	uri     请求路径与查询串（已解码、已剔除控制字符）
+//	status  响应状态码
+//	size    响应体字节数
+//	dur     处理耗时
+//	err     仅出错时出现，错误信息单独成字段
+//
+// 静态资源（内置前端产物）不记录访问日志。
 
-type logElementKind int
+// accessLogger 为每个请求输出一条访问记录；nil 表示关闭（测试用）。
+type accessLogger struct{}
 
 const (
-	logLiteral logElementKind = iota
-	logVariable
-	logHeader
+	callerBegin = "api-begin"
+	callerEnd   = "api-end"
 )
 
-type logElement struct {
-	kind logElementKind
-	lit  string // literal text
-	name string // variable name or header name
+// begin 在请求开始时输出一条 debug 记录。默认级别为 info，因此只有
+// --log-level debug 时才可见；它与对应的 end 记录共享同一个 trace。
+func (l *accessLogger) begin(r *http.Request, trace string) {
+	logs.With(trace).
+		Str("caller", callerBegin).
+		Str("ip", remoteIP(r.RemoteAddr)).
+		Str("method", r.Method).
+		Str("uri", logURI(r)).
+		Debug()
 }
 
-// HttpLogger formats access log lines from a customizable format string.
-type HttpLogger struct {
-	elements []logElement
-}
-
-func defaultHttpLogger() HttpLogger {
-	return parseHttpLogger(defaultLogFormat)
-}
-
-func parseHttpLogger(format string) HttpLogger {
-	var elements []logElement
-	s := format + " "
-	cache := ""
-	isVar := false
-	flushLiteral := func() {
-		if cache != "" {
-			elements = append(elements, logElement{kind: logLiteral, lit: cache})
-		}
-		cache = ""
+// end 输出请求完成记录。errMsg 非空表示出错：以 error 级别记录，
+// 错误信息放在独立的 err 字段里。
+func (l *accessLogger) end(r *http.Request, trace string, status int, size int64, dur time.Duration, errMsg string) {
+	f := logs.With(trace).
+		Str("caller", callerEnd).
+		Str("ip", remoteIP(r.RemoteAddr))
+	if user := getAuthUser(r.Header.Get("Authorization")); user != "" {
+		f = f.Str("user", user)
 	}
-	for _, c := range s {
-		if c == '$' {
-			flushLiteral()
-			isVar = true
-		} else if isVar && !isAlnumOrUnderscore(c) {
-			if v, ok := strings.CutPrefix(cache, "$http_"); ok {
-				elements = append(elements, logElement{kind: logHeader, name: strings.ReplaceAll(v, "_", "-")})
-			} else if v, ok := strings.CutPrefix(cache, "$"); ok {
-				elements = append(elements, logElement{kind: logVariable, name: v})
-			}
-			cache = ""
-			isVar = false
-		}
-		cache += string(c)
-	}
-	cache = strings.TrimSpace(cache)
-	if cache != "" {
-		elements = append(elements, logElement{kind: logLiteral, lit: cache})
-	}
-	return HttpLogger{elements: elements}
-}
+	f = f.Str("method", r.Method).
+		Str("uri", logURI(r)).
+		Int("status", status).
+		Int64("size", size).
+		Dur("dur", dur)
 
-func (l *HttpLogger) empty() bool { return len(l.elements) == 0 }
-
-// data collects the request-derived log variables.
-func (l *HttpLogger) data(r *http.Request) map[string]string {
-	data := map[string]string{}
-	for _, el := range l.elements {
-		switch el.kind {
-		case logVariable:
-			switch el.name {
-			case "request", "request_method", "request_uri":
-				uri := r.URL.RequestURI()
-				decoded := uri
-				if d, ok := decodeURI(uri); ok {
-					decoded = sanitizeLogValue(d)
-				}
-				if _, ok := data["request"]; !ok {
-					data["request"] = r.Method + " " + decoded
-				}
-				if _, ok := data["request_method"]; !ok {
-					data["request_method"] = r.Method
-				}
-				if _, ok := data["request_uri"]; !ok {
-					data["request_uri"] = decoded
-				}
-			case "remote_user":
-				if user := getAuthUser(r.Header.Get("Authorization")); user != "" {
-					data[el.name] = user
-				}
-			}
-		case logHeader:
-			if v := r.Header.Get(el.name); v != "" {
-				data[el.name] = sanitizeLogValue(v)
-			}
-		}
-	}
-	return data
-}
-
-// log formats and emits an access log line. errMsg non-empty marks an error.
-func (l *HttpLogger) log(data map[string]string, errMsg string) {
-	if l.empty() {
+	if errMsg != "" {
+		f.Str("err", sanitizeLogValue(errMsg)).Error()
 		return
 	}
-	isError := errMsg != ""
-	now := time.Now()
-	timeLocal := now.Format("2006-01-02T15:04:05-07:00")
-	timeIso8601 := now.Format("2006-01-02T15:04:05-07:00")
-	msec := fmt.Sprintf("%.3f", float64(now.UnixNano())/1e9)
-	logLevel := "INFO"
-	if isError {
-		logLevel = "ERROR"
-	}
+	f.Info()
+}
 
-	var sb strings.Builder
-	for _, el := range l.elements {
-		switch el.kind {
-		case logLiteral:
-			sb.WriteString(el.lit)
-		case logVariable:
-			var val string
-			switch el.name {
-			case "time_local":
-				val = timeLocal
-			case "time_iso8601":
-				val = timeIso8601
-			case "msec":
-				val = msec
-			case "log_level":
-				val = logLevel
-			default:
-				val = data[el.name]
-				if val == "" {
-					val = "-"
-				}
-			}
-			sb.WriteString(val)
-		case logHeader:
-			val := data[el.name]
-			if val == "" {
-				val = "-"
-			}
-			sb.WriteString(val)
+// requestIDHeader 把本次请求的 trace 返回给客户端，用户报问题时可以引用它，
+// 并与日志对上。
+const requestIDHeader = "X-Request-ID"
+
+// requestTrace 复用上游的 X-Request-ID（部署在反向代理后面时），
+// 不合法则生成一个。
+func requestTrace(r *http.Request) string {
+	if id := r.Header.Get(requestIDHeader); validTraceID(id) {
+		return id
+	}
+	return logs.TraceId()
+}
+
+// validTraceID 只接受 8..64 位字母数字，避免客户端往这次请求的每一行日志里
+// 注入任意内容。
+func validTraceID(id string) bool {
+	if len(id) < 8 || len(id) > 64 {
+		return false
+	}
+	for _, c := range id {
+		if !isAlnumOrUnderscore(c) || c == '_' {
+			return false
 		}
 	}
-	line := sb.String()
-	if isError {
-		logs.Error(line + " " + errMsg)
-	} else {
-		logs.Info(line)
-	}
+	return true
 }
 
 func isAlnumOrUnderscore(c rune) bool {
 	return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 }
 
+// logURI 返回请求 URI：百分号解码后剔除控制字符，避免构造出来的路径
+// 破坏日志行的结构。
+func logURI(r *http.Request) string {
+	uri := r.URL.RequestURI()
+	if d, ok := decodeURI(uri); ok {
+		return sanitizeLogValue(d)
+	}
+	return sanitizeLogValue(uri)
+}
+
+// sanitizeLogValue 去掉控制字符，防止路径或错误信息伪造日志行，
+// 也避免把终端转义序列写进日志。引号与反斜杠由日志库负责转义，这里不动。
 func sanitizeLogValue(s string) string {
 	var b strings.Builder
 	for _, c := range s {
-		switch {
-		case c == '\\':
-			b.WriteString(`\\`)
-		case c == '"':
-			b.WriteString(`\"`)
-		case unicode.IsControl(c):
-			b.WriteString(fmt.Sprintf("\\x%02x", c))
-		default:
-			b.WriteRune(c)
+		if unicode.IsControl(c) {
+			b.WriteString(`\x`)
+			b.WriteString(strconv.FormatInt(int64(c), 16))
+			continue
 		}
+		b.WriteRune(c)
 	}
 	return b.String()
 }

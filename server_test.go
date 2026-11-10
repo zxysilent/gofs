@@ -37,7 +37,7 @@ func testArgs(t *testing.T, dir string, allowAll bool) Args {
 	args.allowSearch = allowAll
 	args.allowArchive = allowAll
 	args.allowHash = allowAll
-	args.httpLogger = parseHttpLogger("") // disable access log
+	args.accessLog = nil // disable access log
 	return args
 }
 

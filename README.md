@@ -207,8 +207,8 @@ Options:
       --render-try-index     Serve index.html when requesting a directory, returns directory listing if not found index.html
       --render-spa           Serve SPA (Single Page Application)
       --assets <path>        Set the path to the assets directory for overriding the built-in assets
-      --log-format <format>  Customize http log format
       --log-file <file>      Specify the file to save logs to, other than stdout/stderr
+      --log-level <level>    Set the log level [default: info] [possible values: debug, info, warn, error]
       --compress <level>     Set zip compress level [default: low] [possible values: none, low, medium, high]
       --completions <shell>  Print shell completion script for <shell>
       --tls-cert <path>      Path to an SSL/TLS certificate to serve with HTTPS
@@ -238,6 +238,36 @@ gofs -a 'admin:123@/:rw'
 
 # HTTPS
 gofs --tls-cert cert.pem --tls-key key.pem
+```
+
+## Access log
+
+One structured record per request, with a fixed field set — no custom template
+to maintain, and never a second copy of the timestamp inside a quoted message:
+
+```
+time=2026-11-10T15:45:48.350 level=INF trace=cpecek45 caller=api-end ip=127.0.0.1 method=GET uri=/gamma status=200 size=425 dur=258.765µs
+```
+
+| Field | Meaning |
+|-------|---------|
+| `trace` | request id, also returned as the `X-Request-ID` response header |
+| `caller` | `api-end`, or `api-begin` when debug logging is on |
+| `ip` | client address |
+| `method` / `uri` | request method and path (decoded, control characters escaped) |
+| `status` / `size` / `dur` | response status, body bytes, handling time |
+| `user` | authenticated user, when present |
+| `err` | error message, only on failure (logged at error level) |
+
+An upstream `X-Request-ID` (8–64 alphanumerics) is reused when present, so the
+id stays consistent behind a reverse proxy. Static assets are not logged.
+
+`--log-level debug` adds an `api-begin` line carrying the same `trace`, which
+makes it easy to pair the start and end of a slow request.
+
+```sh
+# follow one request end to end
+grep 'trace=cpecek45' gofs.log
 ```
 
 ## Built-in virtual documents
@@ -311,7 +341,7 @@ full parameter table.
 | `server.go` | HTTP + WebDAV request handling, embedded asset serving |
 | `docs.go` | built-in virtual Markdown documents (bilingual) |
 | `auth.go` | access control, Basic/Digest auth, sha512-crypt |
-| `logger.go` | customizable access log format |
+| `logger.go` | structured access log (fixed fields, per-request trace) |
 | `utils.go` | URI encoding, glob, range parsing, content types |
 | `noscript.go` | text-client directory listing |
 | `web/` | Vue 3 + TypeScript SPA source (Vite build) |

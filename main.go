@@ -36,13 +36,17 @@ func main() {
 	}
 
 	args := res.args
-	initLogger(args.logFile)
+	initLogger(args.logFile, args.logLevel)
 
 	serve(args)
 }
 
-func initLogger(logFile string) {
+func initLogger(logFile, logLevel string) {
+	// 默认只输出 INFO 及以上；--log-level debug 额外输出每个请求的 api-begin 行。
 	logs.SetLevel(logs.LevelInfo)
+	if logLevel != "" {
+		logs.SetLevel(logs.ParseLevel(logLevel))
+	}
 	if logFile != "" {
 		logs.SetFile(logFile)
 		logs.SetConsole(false)
@@ -165,8 +169,8 @@ Options:
       --render-try-index     Serve index.html when requesting a directory, returns directory listing if not found index.html
       --render-spa           Serve SPA(Single Page Application)
       --assets <path>        Set the path to the assets directory for overriding the built-in assets
-      --log-format <format>  Customize http log format
       --log-file <file>      Specify the file to save logs to, other than stdout/stderr
+      --log-level <level>    Set the log level [default: info] [possible values: debug, info, warn, error]
       --compress <level>     Set zip compress level [default: low] [possible values: none, low, medium, high]
       --completions <shell>  Print shell completion script for <shell> [possible values: bash, elvish, fish, powershell, zsh]
       --tls-cert <path>      Path to an SSL/TLS certificate to serve with HTTPS
@@ -182,7 +186,7 @@ func printCompletions(shell string) {
 	if shell == "bash" {
 		fmt.Print(`_gofs() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
-  local opts="--config --bind --port --path-prefix --hidden --auth --allow-all --allow-upload --allow-delete --allow-search --allow-symlink --allow-archive --allow-hash --enable-cors --render-index --render-try-index --render-spa --assets --log-format --log-file --compress --completions --tls-cert --tls-key --help --version"
+  local opts="--config --bind --port --path-prefix --hidden --auth --allow-all --allow-upload --allow-delete --allow-search --allow-symlink --allow-archive --allow-hash --enable-cors --render-index --render-try-index --render-spa --assets --log-file --log-level --compress --completions --tls-cert --tls-key --help --version"
   COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
 }
 complete -F _gofs gofs
