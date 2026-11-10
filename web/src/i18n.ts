@@ -118,8 +118,6 @@ const zh: Record<string, string> = {
 
   // tree context menu
   'menu.newFolder': '新建子目录',
-  'menu.openNewTab': '在新标签页打开',
-  'menu.copyLink': '复制链接',
   'menu.copyRelPath': '复制路径',
   'menu.more': '更多操作',
 
@@ -265,8 +263,6 @@ const en: Record<string, string> = {
 
   // tree context menu
   'menu.newFolder': 'New subfolder',
-  'menu.openNewTab': 'Open in new tab',
-  'menu.copyLink': 'Copy link',
   'menu.copyRelPath': 'Copy path',
   'menu.more': 'More actions',
 

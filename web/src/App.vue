@@ -312,14 +312,17 @@ function onHashChange() {
 onMounted(() => {
   document.title = `Index of ${relPath.value} - gofs`
   window.addEventListener('hashchange', onHashChange)
-  // If the page was opened with a hash (deep link / refresh), honour it.
-  const hp = parseHash()
-  if (normalizeRelPath(hp) !== relPath.value) {
-    navigate(hp)
-  } else if (location.hash !== '#' + relPath.value) {
-    // normalize the URL to the canonical hash route without adding history
-    history.replaceState(null, '', hashUrl(relPath.value))
+  // 有 hash（深链 / 刷新）时以它为准。
+  if (location.hash && location.hash !== '#') {
+    const hp = normalizeRelPath(parseHash())
+    if (hp !== relPath.value) navigate(hp)
+    else history.replaceState(null, '', hashUrl(relPath.value))
+    return
   }
+  // 没有 hash：说明是直接打开了某个目录 URL（如"在新标签页打开"、书签）。
+  // 此时服务端已按该路径渲染了数据，relPath 就是正确的当前目录，
+  // 不能因为 parseHash() 返回 '/' 就把用户送回根目录。只把 URL 补成规范形式。
+  history.replaceState(null, '', hashUrl(relPath.value))
 })
 
 // ---- 可拖动分栏 ----

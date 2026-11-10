@@ -107,10 +107,11 @@ function onFileChange(e: Event) {
       <template v-if="allowUpload">
         <button class="btn" @click="emit('new-folder')"><span v-html="ICONS.newFolder"></span>{{ t('toolbar.newFolder') }}</button>
         <button class="btn" @click="emit('new-file')"><span v-html="ICONS.newFile"></span>{{ t('toolbar.newFile') }}</button>
+        <!-- curl 上传命令同样是写操作，只读目录下不应出现 -->
+        <button class="btn" :title="t('toolbar.curlUploadTitle')" @click="emit('curl-upload')">
+          <span v-html="ICONS.terminal"></span>{{ t('toolbar.curlUpload') }}
+        </button>
       </template>
-      <button class="btn" :title="t('toolbar.curlUploadTitle')" @click="emit('curl-upload')">
-        <span v-html="ICONS.terminal"></span>{{ t('toolbar.curlUpload') }}
-      </button>
       <button v-if="allowArchive" class="btn" @click="emit('download-archive')">
         <span v-html="ICONS.archive"></span>{{ t('toolbar.archive') }}
       </button>

@@ -533,11 +533,9 @@ const menuItems = computed<MenuItem[]>(() => {
       icon: 'newFolder',
       disabled: !canWrite,
     },
-    { key: 'open-new', label: t('menu.openNewTab'), icon: 'external', dividerBefore: true },
-    { key: 'copy-link', label: t('menu.copyLink'), icon: 'link' },
-    { key: 'copy-rel-path', label: t('menu.copyRelPath'), icon: 'copy' },
-    { key: 'reload', label: t('common.refresh'), icon: 'refresh', dividerBefore: true },
-    { key: 'rename', label: t('action.rename'), icon: 'rename', disabled: !canWrite },
+    { key: 'copy-rel-path', label: t('menu.copyRelPath'), icon: 'copy', dividerBefore: true },
+    { key: 'reload', label: t('common.refresh'), icon: 'refresh' },
+    { key: 'rename', label: t('action.rename'), icon: 'rename', dividerBefore: true, disabled: !canWrite },
     { key: 'delete', label: t('action.delete'), icon: 'trash', danger: true, disabled: !canRemove },
   ]
 })
@@ -568,19 +566,6 @@ function onMenuSelect(key: string) {
     case 'new-folder':
       // 交给父组件弹窗并调用 mkdir，成功后重建树。
       emit('action', { action: 'new-folder', path: node.path, name: node.name })
-      break
-    case 'open-new':
-      window.open(location.origin + absUrl(node.path), '_blank', 'noopener')
-      break
-    case 'copy-link':
-      void copyText(location.origin + absUrl(node.path)).then((ok) =>
-        showToast(
-          ok
-            ? t('toast.copyPath')
-            : t('toast.copyFailed', { text: location.origin + absUrl(node.path) }),
-          ok ? 'success' : 'error',
-        ),
-      )
       break
     case 'copy-rel-path':
       void copyText(node.path).then((ok) =>
