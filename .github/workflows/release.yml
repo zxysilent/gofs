@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}${{ matrix.goarm }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,10 +53,9 @@ jobs:
         id: meta
         run: |
           ref='${{ inputs.tag || github.ref_name }}'
-          version="${ref#v}"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "version=${ref#v}" >> "$GITHUB_OUTPUT"
           echo "tag=$ref" >> "$GITHUB_OUTPUT"
-          echo "Releasing $ref (version $version)"
+          echo "Releasing $ref"
 
       - name: Build
         id: build
@@ -67,32 +66,44 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
         run: |
           set -euo pipefail
+
+          # Archive name: gofs_<version>_<os>_<arch>[v<goarm>]
           name="gofs_${VERSION}_${GOOS}_${GOARCH}"
           if [ -n "${GOARM:-}" ]; then
             name="${name}v${GOARM}"
-            export GOARM
           fi
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
           bin="gofs"
-          [ "$GOOS" = "windows" ] && bin="gofs.exe"
+          if [ "$GOOS" = "windows" ]; then bin="gofs.exe"; fi
 
-          # CGO stays off so the binaries are fully static.
+          # CGO stays off so the binaries are fully static and portable.
           CGO_ENABLED=0 go build \
             -trimpath \
             -ldflags "-s -w -X main.version=${VERSION}" \
             -o "dist/${bin}" .
 
           # Ship the license and docs alongside the binary.
-          cp LICENSE README.md README.zh-CN.md "dist/" 2>/dev/null || true
+          cp LICENSE README.md README.zh-CN.md dist/
 
-          # The version must actually be baked in, otherwise fail loudly.
-          reported="$("./dist/${bin}" --version)"
-          echo "built: $reported"
-          case "$reported" in
-            *"${VERSION}") ;;
-            *) echo "::error::version mismatch: expected ${VERSION}, got ${reported}"; exit 1 ;;
-          esac
+          # Confirm the version was baked in. Binaries cross-compiled for a
+          # foreign platform cannot be executed on this runner, so only run the
+          # one built for the runner itself and grep the rest.
+          if [ "$GOOS" = "linux" ] && [ "$GOARCH" = "amd64" ]; then
+            reported="$("./dist/${bin}" --version)"
+            echo "executed: $reported"
+            case "$reported" in
+              *"${VERSION}") ;;
+              *) echo "::error::version mismatch: expected ${VERSION}, got ${reported}"; exit 1 ;;
+            esac
+          else
+            if ! grep -aqF -- "${VERSION}" "dist/${bin}"; then
+              echo "::error::version ${VERSION} not found inside dist/${bin}"
+              exit 1
+            fi
+            echo "version string present in dist/${bin} (cross-compiled, not executed)"
+          fi
+          file "dist/${bin}" || true
 
           if [ "$GOOS" = "windows" ]; then
             (cd dist && zip -q -r "../${name}.zip" .)
@@ -102,15 +113,21 @@ jobs:
             echo "archive=${name}.tar.gz" >> "$GITHUB_OUTPUT"
           fi
 
+          ls -lh "${name}".*
+
       - name: Checksums
+        env:
+          ARCHIVE: ${{ steps.build.outputs.archive }}
         run: |
-          sha256sum "${{ steps.build.outputs.archive }}" > "${{ steps.build.outputs.archive }}.sha256"
-          cat "${{ steps.build.outputs.archive }}.sha256"
+          set -euo pipefail
+          sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
+          cat "${ARCHIVE}.sha256"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.build.outputs.name }}
-          files: |
+          # NOTE: upload-artifact@v4 takes `path`, not `files`.
+          path: |
             ${{ steps.build.outputs.archive }}
             ${{ steps.build.outputs.archive }}.sha256
           if-no-files-found: error
@@ -121,8 +138,6 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -130,8 +145,8 @@ jobs:
 
       - name: Combine checksums
         run: |
+          set -euo pipefail
           cd artifacts
-          # Build one SHA256SUMS file covering every published archive.
           : > SHA256SUMS
           for f in *.sha256; do
             [ -e "$f" ] || continue
@@ -150,30 +165,48 @@ jobs:
           name: ${{ inputs.tag || github.ref_name }}
           draft: false
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             artifacts/*
           body: |
             ## Install
 
-            Linux / macOS (installs the latest release into `/usr/local/bin`):
+            Linux / macOS / FreeBSD — installs the newest release into `/usr/local/bin`:
 
             ```sh
             curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
             ```
 
-            Specific version or custom prefix:
+            Pin a version, or skip sudo:
 
             ```sh
             curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
             curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
             ```
 
-            Or grab an archive below and verify it against `SHA256SUMS`.
+            Prefer a manual download? Grab an archive below and verify it against `SHA256SUMS`:
+
+            ```sh
+            sha256sum -c --ignore-missing SHA256SUMS
+            ```
 
             ## 安装
 
-            Linux / macOS（安装最新版到 `/usr/local/bin`）：
+            Linux / macOS / FreeBSD —— 安装最新版到 `/usr/local/bin`：
 
             ```sh
             curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
+            ```
+
+            也可以指定版本或安装目录：
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
+            ```
+
+            也可以手动下载下方压缩包，并用 `SHA256SUMS` 校验：
+
+            ```sh
+            sha256sum -c --ignore-missing SHA256SUMS
             ```
