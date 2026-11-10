@@ -8,6 +8,7 @@ import { copyText, showToast } from '../dialog'
 import { locale, t, toggleLocale } from '../i18n'
 import { themeMode, cycleTheme } from '../theme'
 import { HELP_CONTENT } from '../help-content'
+import { PROJECT_URL } from '../utils'
 import TreeNodeComp from './TreeNode.vue'
 import ContextMenu, { type MenuItem } from './ContextMenu.vue'
 
@@ -214,6 +215,11 @@ async function copyDocUrl() {
     ok ? t('sidebar.copiedUrl', { url }) : t('sidebar.copyUrlFailed', { url }),
     ok ? 'success' : 'error',
   )
+}
+
+// 跳到项目主页（帮助面板唯一一个指向外部站点的入口）。
+function openProject() {
+  window.open(PROJECT_URL, '_blank', 'noopener')
 }
 
 // 复制 agent 手册全文，方便直接粘给 AI。
@@ -724,6 +730,9 @@ onMounted(() => {
           </button>
           <button class="btn" :title="t('sidebar.copyUrlTitle')" @click="copyDocUrl">
             <span v-html="ICONS.copy"></span>{{ t('sidebar.copyUrl') }}
+          </button>
+          <button class="btn" :title="t('sidebar.projectUrlTitle')" @click="openProject">
+            <span v-html="ICONS.globe"></span>{{ t('sidebar.projectUrl') }}
           </button>
         </div>
         <div v-show="activeTab === 'human'" class="help-content">

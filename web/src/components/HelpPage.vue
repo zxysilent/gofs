@@ -4,6 +4,7 @@ import { absUrl, readText } from '../api'
 import { ICONS } from '../icons'
 import { copyText, showToast } from '../dialog'
 import { t } from '../i18n'
+import { PROJECT_URL } from '../utils'
 
 const emit = defineEmits<{ (e: 'back'): void }>()
 
@@ -41,6 +42,11 @@ async function copyUrl() {
 function openManual() {
   window.open(location.origin + manualUrl, '_blank', 'noopener')
 }
+
+// 跳到项目主页。
+function openProject() {
+  window.open(PROJECT_URL, '_blank', 'noopener')
+}
 </script>
 
 <template>
@@ -56,6 +62,9 @@ function openManual() {
       </button>
       <button class="btn" :title="t('sidebar.copyUrlTitle')" @click="copyUrl">
         <span v-html="ICONS.link"></span>{{ t('sidebar.copyUrl') }}
+      </button>
+      <button class="btn" :title="t('sidebar.projectUrlTitle')" @click="openProject">
+        <span v-html="ICONS.globe"></span>{{ t('sidebar.projectUrl') }}
       </button>
       <button class="btn btn-primary" :title="t('help.copyManualTitle')" @click="copyManual">
         <span v-html="ICONS.copy"></span>{{ t('help.copyManual') }}

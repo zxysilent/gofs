@@ -1,6 +1,9 @@
 // File-kind detection and formatting helpers.
 import { t } from './i18n'
 
+// 项目主页；帮助面板里作为唯一一个指向外部站点的入口。
+export const PROJECT_URL = 'https://github.com/zxysilent/gofs'
+
 export type FileKind =
   | 'image'
   | 'video'
