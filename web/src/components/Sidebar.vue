@@ -248,15 +248,16 @@ onMounted(() => {
     <div class="sidebar-head">
       <div class="logo"><span v-html="ICONS.folder"></span><span>gofs</span></div>
     </div>
+    <!-- FILES 固定在滚动区之外，展开长目录树时不会跟着滚走 -->
+    <div
+      class="sidebar-label sidebar-label-clickable"
+      :class="{ active: currentPath === '/' }"
+      :title="t('sidebar.rootTitle')"
+      @click="onSelect('/')"
+    >
+      <span class="sidebar-label-icon" v-html="ICONS.list"></span>{{ t('sidebar.fileList') }}
+    </div>
     <div class="sidebar-body">
-      <div
-        class="sidebar-label sidebar-label-clickable"
-        :class="{ active: currentPath === '/' }"
-        :title="t('sidebar.rootTitle')"
-        @click="onSelect('/')"
-      >
-        <span class="sidebar-label-icon" v-html="ICONS.list"></span>{{ t('sidebar.fileList') }}
-      </div>
       <ul class="tree">
         <TreeNodeComp
           v-for="node in topNodes"
