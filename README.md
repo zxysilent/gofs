@@ -103,7 +103,7 @@ Pin a version, or choose where it lands:
 
 ```sh
 # specific version
-curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.1
 
 # no sudo needed
 curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
@@ -122,10 +122,12 @@ Grab the archive for your platform from the
 the binary on your `PATH`:
 
 ```sh
-curl -fsSLO https://github.com/zxysilent/gofs/releases/latest/download/SHA256SUMS
-curl -fsSLO https://github.com/zxysilent/gofs/releases/download/v0.1.0/gofs_0.1.0_linux_amd64.tar.gz
+ver=0.1.1
+base="https://github.com/zxysilent/gofs/releases/download/v${ver}"
+curl -fsSLO "${base}/SHA256SUMS"
+curl -fsSLO "${base}/gofs_${ver}_linux_amd64.tar.gz"
 sha256sum -c <(grep 'linux_amd64' SHA256SUMS)
-tar -xzf gofs_0.1.0_linux_amd64.tar.gz
+tar -xzf "gofs_${ver}_linux_amd64.tar.gz"
 sudo install -m 0755 gofs /usr/local/bin/gofs
 ```
 
@@ -178,7 +180,7 @@ bash install-deps.sh          # npm install + npm run build
 A release build bakes the version in at link time:
 
 ```sh
-go build -trimpath -ldflags "-s -w -X main.version=0.1.0" -o gofs .
+go build -trimpath -ldflags "-s -w -X main.version=0.1.1" -o gofs .
 ```
 
 ## Usage
@@ -344,8 +346,8 @@ Everything lives in `.github/workflows/`:
 Cut a release with:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 The installer reads that release, so the one-line install command always
