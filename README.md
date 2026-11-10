@@ -164,7 +164,7 @@ WantedBy=multi-user.target
 
 ## Build from source
 
-Requires Go 1.24+.
+Requires Go 1.26+.
 
 ```sh
 # The built frontend assets are already committed under web/dist,
@@ -195,15 +195,15 @@ go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
 gofs [OPTIONS] [serve-path]
 
 Arguments:
-  [serve-path]  Specific path to serve [default: .]
+  [serve-path]  Specific path to serve (default ".")
 
 Options:
-  -c, --config <file>                   configuration file (TOML)
-  -b, --bind <addrs>                    bind address or unix socket
-  -p, --port <port>                     port to listen on (default 5000)
-      --path-prefix <path>              path prefix
-      --hidden <value>                  hide paths from listings, e.g. tmp,*.log
-  -a, --auth <rules>                    auth rules, e.g. user:pass@/dir1:rw,/dir2
+  -c, --config file                     configuration file (TOML)
+  -b, --bind addrs                      bind addrs, IP or unix socket
+  -p, --port int                        port to listen on (default 5000)
+      --path-prefix prefix              path prefix
+      --hidden paths                    hide paths from listings, e.g. tmp,*.log
+  -a, --auth rule                       auth rule, e.g. user:pass@/dir1:rw,/dir2
   -A, --allow-all[=true|false]          allow all operations
       --allow-upload[=true|false]       allow upload files/folders
       --allow-delete[=true|false]       allow delete files/folders
@@ -215,23 +215,22 @@ Options:
       --render-index[=true|false]       serve index.html for a directory, 404 if absent
       --render-try-index[=true|false]   serve index.html, else list the directory
       --render-spa[=true|false]         serve as a single page application
-      --assets <path>                   override the built-in assets directory
-      --log-file <file>                 write logs to a file instead of stderr
-      --log-level <level>               log level: debug, info, warn, error (default info)
-      --compress <level>                zip level: none, low, medium, high (default low)
-      --completions <shell>             print a shell completion script (bash)
-      --tls-cert <path>                 TLS certificate for HTTPS
-      --tls-key <path>                  TLS private key for HTTPS
+      --assets dir                      override the built-in assets dir
+      --log-file file                   write logs to a file instead of stderr
+      --log-level level                 log level: debug, info, warn, error (default "info")
+      --compress level                  zip level: none, low, medium, high (default "low")
+      --completions shell               print a completion script for shell (bash)
+      --tls-cert path                   path to the TLS certificate for HTTPS
+      --tls-key path                    path to the TLS private key for HTTPS
   -h, --help[=true|false]               print help
   -V, --version[=true|false]            print version
 
-Configuration is read from a TOML file (--config), GOFS_* environment
-variables and the command line, in increasing order of precedence.
+Configuration comes from a TOML file (--config) and/or the command line;
+an explicit flag wins over the file.
 ```
 
-Options can also be set through `GOFS_*` environment variables (for example
-`GOFS_PORT=5000`, `GOFS_AUTH=admin:123@/:rw`) or a TOML config file via
-`--config`.
+Options can also come from a TOML config file via `--config`; an explicit
+flag wins over the file.
 
 ### Config file
 
@@ -253,10 +252,8 @@ log-file = "/var/log/gofs/gofs.log"
 log-level = "info"
 ```
 
-`bind`, `hidden` and `auth` accept either an array or a single string. Unknown
-keys are a hard error, so a typo never silently leaves a setting unset. YAML is
-no longer supported — `.yaml`/`.yml` paths are rejected with a message pointing
-at TOML.
+`bind`, `hidden` and `auth` are always arrays. Unknown keys are a hard error, so
+a typo never silently leaves a setting unset.
 
 ### Examples
 

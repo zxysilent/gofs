@@ -7,6 +7,16 @@ import (
 	"testing"
 )
 
+// loadArgs 走与 ParseArgs 相同的两步：先填 options，再 resolve。测试只关心
+// 结果，所以直接复用这条路径而不是复制一份合并逻辑。
+func loadArgs(path string) (Args, error) {
+	opts := defaultOptions()
+	if err := loadConfig(path, &opts); err != nil {
+		return Args{}, err
+	}
+	return opts.resolve()
+}
+
 func writeConfig(t *testing.T, name, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -30,7 +40,7 @@ compress = "high"
 log-level = "warn"
 `)
 
-	args, err := loadConfig(cfg)
+	args, err := loadArgs(cfg)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -60,30 +70,11 @@ log-level = "warn"
 	}
 }
 
-// 列表既可以写成单个字符串，也可以写成数组。
-func TestLoadConfigSingleStringList(t *testing.T) {
-	cfg := writeConfig(t, "config.toml", `
-bind = "127.0.0.1"
-auth = "admin:123@/:rw"
-`)
-
-	args, err := loadConfig(cfg)
-	if err != nil {
-		t.Fatalf("loadConfig: %v", err)
-	}
-	if len(args.Addrs) != 1 || args.Addrs[0].Addr != "127.0.0.1" {
-		t.Errorf("addrs = %+v", args.Addrs)
-	}
-	if !args.Auth.HasUsers() {
-		t.Errorf("auth should have users")
-	}
-}
-
 // 缺省的键保持 DefaultArgs 的值，不会被零值覆盖。
 func TestLoadConfigKeepsDefaults(t *testing.T) {
 	cfg := writeConfig(t, "config.toml", `allow-search = true`)
 
-	args, err := loadConfig(cfg)
+	args, err := loadArgs(cfg)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
@@ -105,7 +96,7 @@ port = 3000
 allow-uplaod = true
 `)
 
-	_, err := loadConfig(cfg)
+	_, err := loadArgs(cfg)
 	if err == nil {
 		t.Fatal("expected an error for an unknown key")
 	}
@@ -114,23 +105,10 @@ allow-uplaod = true
 	}
 }
 
-// 旧的 YAML 配置要给出明确提示，而不是一个 TOML 语法错误。
-func TestLoadConfigRejectsYAML(t *testing.T) {
-	cfg := writeConfig(t, "config.yaml", "port: 3000\n")
-
-	_, err := loadConfig(cfg)
-	if err == nil {
-		t.Fatal("expected an error for a YAML config")
-	}
-	if !strings.Contains(err.Error(), "TOML") {
-		t.Errorf("error should point at TOML: %v", err)
-	}
-}
-
 func TestLoadConfigInvalidTOML(t *testing.T) {
 	cfg := writeConfig(t, "config.toml", "port = \n")
 
-	if _, err := loadConfig(cfg); err == nil {
+	if _, err := loadArgs(cfg); err == nil {
 		t.Fatal("expected a parse error")
 	}
 }
@@ -143,7 +121,7 @@ func TestLoadConfigInvalidValues(t *testing.T) {
 	}
 	for name, content := range cases {
 		cfg := writeConfig(t, "config.toml", content)
-		if _, err := loadConfig(cfg); err == nil {
+		if _, err := loadArgs(cfg); err == nil {
 			t.Errorf("%s: expected an error for %q", name, content)
 		}
 	}

@@ -2,32 +2,34 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/pflag"
 )
 
-// helpHeader is the prose part of the help output. The option table below it is
-// generated from the FlagSet, so only text that cannot be derived lives here.
-const helpHeader = `gofs is a distinctive utility file server.
+// PrintHelp prints the description followed by pflag's own option table.
+//
+// The table comes from PrintDefaults, which already knows the shorthands, the
+// value placeholders (taken from a back-quoted word in the usage string) and
+// every non-zero default — nothing is kept in sync by hand.
+func PrintHelp() {
+	opts := defaultOptions()
+	fs := newFlagSet(&opts, &meta{})
+	fs.SetOutput(os.Stdout)
+
+	fmt.Print(`gofs is a distinctive utility file server.
 
 Usage: gofs [OPTIONS] [serve-path]
 
 Arguments:
-  [serve-path]  Specific path to serve [default: .]
+  [serve-path]  Specific path to serve (default ".")
 
 Options:
-`
-
-// PrintHelp writes the full usage text. The option table comes from the
-// registered flags, so adding or renaming one cannot leave the help stale.
-func PrintHelp() {
-	f := &flags{}
-	fs := newFlagSet(f)
-	fmt.Print(helpHeader)
-	fmt.Print(fs.FlagUsages())
-	fmt.Print("\nConfiguration is read from a TOML file (--config), GOFS_* environment\n" +
-		"variables and the command line, in increasing order of precedence.\n")
+`)
+	fs.PrintDefaults()
+	fmt.Print("\nConfiguration comes from a TOML file (--config) and/or the command line;\n" +
+		"an explicit flag wins over the file.\n")
 }
 
 // PrintCompletions prints a shell completion script. Only bash is implemented;
@@ -39,13 +41,13 @@ func PrintCompletions(shell string) {
 	}
 
 	// Every flag name, in registration order, plus its shorthand when it has one.
-	var opts []string
-	f := &flags{}
-	fs := newFlagSet(f)
+	var names []string
+	opts := defaultOptions()
+	fs := newFlagSet(&opts, &meta{})
 	fs.VisitAll(func(fl *pflag.Flag) {
-		opts = append(opts, "--"+fl.Name)
+		names = append(names, "--"+fl.Name)
 		if fl.Shorthand != "" {
-			opts = append(opts, "-"+fl.Shorthand)
+			names = append(names, "-"+fl.Shorthand)
 		}
 	})
 
@@ -55,5 +57,5 @@ func PrintCompletions(shell string) {
   COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
 }
 complete -F _gofs gofs
-`, strings.Join(opts, " "))
+`, strings.Join(names, " "))
 }

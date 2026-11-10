@@ -13,7 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -193,7 +193,7 @@ func (ap *AccessPaths) ChildNames() []string {
 	for k := range ap.children {
 		names = append(names, k)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 

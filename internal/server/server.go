@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -28,7 +28,7 @@ import (
 
 const (
 	indexName              = "index.html"
-	resumableUploadMinSize = 20971520 // 20M
+	resumableUploadMinSize = 33554432 // 32M
 	healthCheckPath        = "gofs-healthz"
 	maxSubpathsCount       = 1024
 )
@@ -1032,7 +1032,7 @@ func (s *Server) handleFileJSON(path string, headOnly bool, w *responseWriter) e
 // renderApp renders the single-page application, injecting the given data as a
 // base64 JSON blob and rewriting the static asset base to the server's
 // dedicated prefix.
-func (s *Server) renderApp(w *responseWriter, data interface{}, headOnly bool) error {
+func (s *Server) renderApp(w *responseWriter, data any, headOnly bool) error {
 	jsonBytes, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -1686,15 +1686,13 @@ func randomUUID() string {
 // ---- sorting ----
 
 func sortPaths(paths []PathItem, cmp func(a, b *PathItem) int) {
-	sort.SliceStable(paths, func(i, j int) bool {
-		return cmp(&paths[i], &paths[j]) < 0
+	slices.SortStableFunc(paths, func(a, b PathItem) int {
+		return cmp(&a, &b)
 	})
 }
 
 func reversePaths(paths []PathItem) {
-	for i, j := 0, len(paths)-1; i < j; i, j = i+1, j-1 {
-		paths[i], paths[j] = paths[j], paths[i]
-	}
+	slices.Reverse(paths)
 }
 
 func typeOrder(t PathType) int {

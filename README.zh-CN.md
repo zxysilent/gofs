@@ -151,7 +151,7 @@ WantedBy=multi-user.target
 
 ## 从源码构建
 
-需要 Go 1.24+。
+需要 Go 1.26+。
 
 ```sh
 # 前端产物已提交在 web/dist，因此普通构建完全不需要 Node.js：
@@ -180,15 +180,15 @@ go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
 gofs [OPTIONS] [serve-path]
 
 Arguments:
-  [serve-path]  Specific path to serve [default: .]
+  [serve-path]  Specific path to serve (default ".")
 
 Options:
-  -c, --config <file>                   configuration file (TOML)
-  -b, --bind <addrs>                    bind address or unix socket
-  -p, --port <port>                     port to listen on (default 5000)
-      --path-prefix <path>              path prefix
-      --hidden <value>                  hide paths from listings, e.g. tmp,*.log
-  -a, --auth <rules>                    auth rules, e.g. user:pass@/dir1:rw,/dir2
+  -c, --config file                     configuration file (TOML)
+  -b, --bind addrs                      bind addrs, IP or unix socket
+  -p, --port int                        port to listen on (default 5000)
+      --path-prefix prefix              path prefix
+      --hidden paths                    hide paths from listings, e.g. tmp,*.log
+  -a, --auth rule                       auth rule, e.g. user:pass@/dir1:rw,/dir2
   -A, --allow-all[=true|false]          allow all operations
       --allow-upload[=true|false]       allow upload files/folders
       --allow-delete[=true|false]       allow delete files/folders
@@ -200,23 +200,21 @@ Options:
       --render-index[=true|false]       serve index.html for a directory, 404 if absent
       --render-try-index[=true|false]   serve index.html, else list the directory
       --render-spa[=true|false]         serve as a single page application
-      --assets <path>                   override the built-in assets directory
-      --log-file <file>                 write logs to a file instead of stderr
-      --log-level <level>               log level: debug, info, warn, error (default info)
-      --compress <level>                zip level: none, low, medium, high (default low)
-      --completions <shell>             print a shell completion script (bash)
-      --tls-cert <path>                 TLS certificate for HTTPS
-      --tls-key <path>                  TLS private key for HTTPS
+      --assets dir                      override the built-in assets dir
+      --log-file file                   write logs to a file instead of stderr
+      --log-level level                 log level: debug, info, warn, error (default "info")
+      --compress level                  zip level: none, low, medium, high (default "low")
+      --completions shell               print a completion script for shell (bash)
+      --tls-cert path                   path to the TLS certificate for HTTPS
+      --tls-key path                    path to the TLS private key for HTTPS
   -h, --help[=true|false]               print help
   -V, --version[=true|false]            print version
 
-Configuration is read from a TOML file (--config), GOFS_* environment
-variables and the command line, in increasing order of precedence.
+Configuration comes from a TOML file (--config) and/or the command line;
+an explicit flag wins over the file.
 ```
 
-所有选项也可通过 `GOFS_*` 环境变量设置（例如 `GOFS_PORT=5000`、
-`GOFS_AUTH=admin:123@/:rw`），或用 `--config` 指定 TOML 配置文件。
-命令行参数与环境变量的优先级高于配置文件。
+也可用 `--config` 指定 TOML 配置文件；同一项在命令行上显式给出时以命令行为准。
 
 ### 配置文件
 
@@ -238,9 +236,7 @@ log-file = "/var/log/gofs/gofs.log"
 log-level = "info"
 ```
 
-`bind`、`hidden`、`auth` 既可以写数组，也可以写单个字符串。未知键会直接报错，
-避免拼错键名导致配置静默失效。已不再支持 YAML —— 传入 `.yaml`/`.yml` 会明确
-提示改用 TOML。
+`bind`、`hidden`、`auth` 是数组。未知键会直接报错，避免拼错键名导致配置静默失效。
 
 ### 示例
 

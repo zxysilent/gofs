@@ -32,8 +32,8 @@ func captureStdout(t *testing.T, fn func()) string {
 func TestPrintHelpListsEveryFlag(t *testing.T) {
 	out := captureStdout(t, PrintHelp)
 
-	f := &flags{}
-	fs := newFlagSet(f)
+	opts := defaultOptions()
+	fs := newFlagSet(&opts, &meta{})
 	fs.VisitAll(func(fl *pflag.Flag) {
 		if !strings.Contains(out, "--"+fl.Name) {
 			t.Errorf("help is missing --%s", fl.Name)
@@ -49,10 +49,10 @@ func TestPrintHelpFormatting(t *testing.T) {
 	out := captureStdout(t, PrintHelp)
 
 	for _, want := range []string{
-		"-c, --config <file>",
-		"-b, --bind <addrs>",
-		"-p, --port <port>",
-		"-a, --auth <rules>",
+		"-c, --config file",
+		"-b, --bind addrs",
+		"-p, --port int",
+		"-a, --auth rule",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("help should contain %q", want)
@@ -91,8 +91,8 @@ func TestPrintCompletionsBash(t *testing.T) {
 		t.Fatalf("no opts list in the completion script: %s", out)
 	}
 
-	f := &flags{}
-	fs := newFlagSet(f)
+	opts := defaultOptions()
+	fs := newFlagSet(&opts, &meta{})
 	fs.VisitAll(func(fl *pflag.Flag) {
 		if !words["--"+fl.Name] {
 			t.Errorf("completion is missing --%s", fl.Name)
