@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"mime"
-	"net"
 	"os"
 	"path"
 	"strconv"
@@ -14,8 +13,6 @@ import (
 	"time"
 	"unicode/utf8"
 )
-
-const bufSize = 65536
 
 var errNoFileName = errors.New("failed to get file name")
 
@@ -94,16 +91,6 @@ func parseRange(rng string, size uint64) [][2]uint64 {
 		}
 	}
 	return result
-}
-
-// isIPv6Available reports whether an IPv6 TCP socket can be created.
-func isIPv6Available() bool {
-	l, err := net.Listen("tcp6", "[::]:0")
-	if err != nil {
-		return false
-	}
-	l.Close()
-	return true
 }
 
 // isText reports whether a byte slice looks like text content (no NUL bytes and

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -992,7 +991,7 @@ func (s *Server) handleRenderSpA(path string, q url.Values, header http.Header, 
 	return s.handleNotFound(q, header, headOnly, w)
 }
 
-func (s *Server) handleNotFound(q url.Values, header http.Header, headOnly bool, w *responseWriter) error {
+func (s *Server) handleNotFound(q url.Values, _ http.Header, headOnly bool, w *responseWriter) error {
 	if s.args.ErrorPage != "" && !hasQueryFlag(q, "noscript") {
 		content, err := os.ReadFile(s.args.ErrorPage)
 		if err != nil {
@@ -1636,14 +1635,6 @@ func addCors(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Methods", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Authorization,*")
 	w.Header().Set("Access-Control-Expose-Headers", "Authorization,*")
-}
-
-func remoteIP(remoteAddr string) string {
-	host, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		return remoteAddr
-	}
-	return host
 }
 
 func ensurePathParent(path string) error {

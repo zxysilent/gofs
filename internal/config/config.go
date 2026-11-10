@@ -535,15 +535,6 @@ func ParseArgs(argv []string) (*Result, error) {
 	return &Result{Args: args}, nil
 }
 
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
 // splitAuthEnv splits GOFS_AUTH on '|' the same way multiple -a rules are.
 func splitAuthEnv(v string) []string {
 	return auth.SplitRules([]string{v})
