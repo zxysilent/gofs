@@ -1083,7 +1083,9 @@ body {
 .help-box {
   width: 760px;
   max-width: 94vw;
-  max-height: 84vh;
+  /* 固定高度：切换 tab 时窗体尺寸恒定，不跳动 */
+  height: 84vh;
+  max-height: 720px;
   display: flex;
   flex-direction: column;
 }
@@ -1104,7 +1106,53 @@ body {
   padding: 5px 10px;
 }
 
+/* 使用说明弹窗：人类 / Agent 两份文档用 tab 切换 */
+.help-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.help-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.help-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.help-tab.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Agent 面板：等宽原文，紧凑排版 */
+.help-agent {
+  padding-right: 4px;
+}
+
+.help-md {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
 .help-content {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   font-size: 13px;
   color: var(--text);

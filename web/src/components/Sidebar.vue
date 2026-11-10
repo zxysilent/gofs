@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import type { PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../types'
-import { listDir, absUrl } from '../api'
+import { listDir, absUrl, readText } from '../api'
 import { ICONS } from '../icons'
 import { copyText, showToast } from '../dialog'
 import TreeNodeComp from './TreeNode.vue'
@@ -18,17 +18,49 @@ const emit = defineEmits<{
 const topNodes = reactive<TreeNode[]>([])
 const showHelp = ref(false)
 
-// 使用说明文档地址（后端提供的原始 Markdown：面向使用者的 gofs-readme.md）。
-const README_DOC = '/gofs-readme.md'
-const helpPageUrl = computed(() => location.origin + absUrl(README_DOC))
+// 使用说明弹窗分两个 tab，分别面向人类与 agent。
+const activeTab = ref<'human' | 'agent'>('human')
 
-function openHelpPage() {
-  window.open(helpPageUrl.value, '_blank', 'noopener')
+// 后端提供的原始 Markdown 文档：readme 面向人，agent 面向 AI 调用。
+const README_DOC = '/gofs-readme.md'
+const AGENT_DOC = '/gofs-agent.md'
+
+// agent 手册按需加载（切到该 tab 时才请求）。
+const agentDoc = ref('')
+const agentLoading = ref(false)
+const agentError = ref('')
+
+const currentDoc = computed(() => (activeTab.value === 'human' ? README_DOC : AGENT_DOC))
+
+async function selectTab(tab: 'human' | 'agent') {
+  activeTab.value = tab
+  if (tab !== 'agent' || agentDoc.value || agentLoading.value) return
+  agentLoading.value = true
+  agentError.value = ''
+  try {
+    agentDoc.value = await readText(AGENT_DOC)
+  } catch (e) {
+    agentError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    agentLoading.value = false
+  }
 }
 
-async function copyHelpPageUrl() {
-  const ok = await copyText(helpPageUrl.value)
-  showToast(ok ? '已复制地址: ' + helpPageUrl.value : '复制失败: ' + helpPageUrl.value, ok ? 'success' : 'error')
+// 在新标签页打开当前 tab 对应的原始 Markdown。
+function openDoc() {
+  window.open(location.origin + absUrl(currentDoc.value), '_blank', 'noopener')
+}
+
+async function copyDocUrl() {
+  const url = location.origin + absUrl(currentDoc.value)
+  const ok = await copyText(url)
+  showToast(ok ? '已复制地址: ' + url : '复制失败: ' + url, ok ? 'success' : 'error')
+}
+
+// 复制 agent 手册全文，方便直接粘给 AI。
+async function copyAgentDoc() {
+  const ok = await copyText(agentDoc.value)
+  showToast(ok ? '已复制接口手册全文' : '复制失败，请手动选择复制', ok ? 'success' : 'error')
 }
 
 function makeNode(path: string, name: string): TreeNode {
@@ -196,16 +228,35 @@ onMounted(() => {
     <div v-if="showHelp" class="modal-overlay" @click.self="showHelp = false">
       <div class="modal-box help-box">
         <div class="help-head">
-          <div class="modal-title">gofs 使用说明</div>
+          <div class="help-tabs">
+            <button
+              class="help-tab"
+              :class="{ active: activeTab === 'human' }"
+              @click="selectTab('human')"
+            >使用说明</button>
+            <button
+              class="help-tab"
+              :class="{ active: activeTab === 'agent' }"
+              @click="selectTab('agent')"
+            >Agent说明</button>
+          </div>
           <div class="toolbar-spacer"></div>
-          <button class="btn" title="在新标签页打开 gofs-readme.md" @click="openHelpPage">
-            <span v-html="ICONS.external"></span>新页面打开
+          <button
+            v-if="activeTab === 'agent' && agentDoc"
+            class="btn"
+            title="复制接口手册全文"
+            @click="copyAgentDoc"
+          >
+            <span v-html="ICONS.copy"></span>复制全文
           </button>
-          <button class="btn" title="复制 gofs-readme.md 地址" @click="copyHelpPageUrl">
-            <span v-html="ICONS.copy"></span>复制
+          <button class="btn" title="在新标签页打开原始 Markdown" @click="openDoc">
+            <span v-html="ICONS.external"></span>原始文件
+          </button>
+          <button class="btn" title="复制原始 Markdown 地址" @click="copyDocUrl">
+            <span v-html="ICONS.copy"></span>复制地址
           </button>
         </div>
-        <div class="help-content">
+        <div v-show="activeTab === 'human'" class="help-content">
           <h4>浏览与导航</h4>
           <ul>
             <li>左侧目录树点击文件夹进入；右侧列表点击文件夹进入、点击文件预览。</li>
@@ -241,6 +292,13 @@ onMounted(() => {
             <li>支持图片、视频、音频、PDF、Markdown、代码、JSON、文本在线预览。</li>
             <li>文本类文件可直接点"编辑"在线修改，<code>Ctrl/Cmd+S</code> 保存；Markdown 编辑时可切换预览。</li>
           </ul>
+        </div>
+        <div v-show="activeTab === 'agent'" class="help-content help-agent">
+          <div v-if="agentLoading" class="file-loading">
+            <span v-html="ICONS.spinner"></span><span>加载中...</span>
+          </div>
+          <div v-else-if="agentError" class="error-banner">加载失败：{{ agentError }}</div>
+          <pre v-else class="help-md">{{ agentDoc }}</pre>
         </div>
         <div class="modal-actions">
           <button class="btn btn-primary" @click="showHelp = false">关闭</button>
