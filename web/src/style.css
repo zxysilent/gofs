@@ -846,6 +846,74 @@ body {
   padding: 0;
 }
 
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body blockquote,
+.markdown-body .md-table {
+  margin: 0 0 12px;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 24px;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 4px 0 0;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid var(--border);
+  padding: 2px 0 2px 12px;
+  color: var(--text-secondary);
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* 宽表格横向滚动，不撑破预览 */
+.md-table {
+  overflow-x: auto;
+}
+
+.markdown-body table {
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body thead th {
+  background: var(--bg);
+  font-weight: 600;
+}
+
+.markdown-body .md-align-center {
+  text-align: center;
+}
+
+.markdown-body .md-align-right {
+  text-align: right;
+}
+
 .editor-wrap {
   display: flex;
   flex-direction: column;
@@ -884,9 +952,9 @@ body {
   white-space: nowrap;
 }
 
-/* SHA256 文本可收缩省略，复制按钮固定在最右 */
+/* SHA256 文本按内容收缩，复制按钮紧跟其后（不再被推到最右） */
 .preview-hash {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
