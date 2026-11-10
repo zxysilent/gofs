@@ -164,7 +164,7 @@ Arguments:
   [serve-path]  Specific path to serve [default: .]
 
 Options:
-  -c, --config <file>        Specify configuration file
+  -c, --config <file>        Specify configuration file (TOML)
   -b, --bind <addrs>         Specify bind address or unix socket
   -p, --port <port>          Specify port to listen on [default: 5000]
       --path-prefix <path>   Specify a path prefix

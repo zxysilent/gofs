@@ -180,7 +180,7 @@ go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
 gofs [OPTIONS] [serve-path]
 
 Options:
-  -c, --config <file>        Specify configuration file
+  -c, --config <file>        Specify configuration file (TOML)
   -b, --bind <addrs>         Specify bind address or unix socket
   -p, --port <port>          Specify port to listen on [default: 5000]
       --path-prefix <path>   Specify a path prefix
@@ -209,7 +209,32 @@ Options:
 ```
 
 所有选项也可通过 `GOFS_*` 环境变量设置（例如 `GOFS_PORT=5000`、
-`GOFS_AUTH=admin:123@/:rw`），或用 `--config` 指定 YAML 配置文件。
+`GOFS_AUTH=admin:123@/:rw`），或用 `--config` 指定 TOML 配置文件。
+命令行参数与环境变量的优先级高于配置文件。
+
+### 配置文件
+
+键名与长选项一致，全部可选：
+
+```toml
+# gofs.toml
+serve-path = "/srv/data"
+bind = ["0.0.0.0", "::"]
+port = 8080
+path-prefix = "files"
+hidden = ["tmp", "*.log", "*.lock"]
+auth = ["admin:123@/:rw", "@/"]
+allow-search = true
+allow-archive = true
+allow-hash = true
+compress = "medium"
+log-file = "/var/log/gofs/gofs.log"
+log-level = "info"
+```
+
+`bind`、`hidden`、`auth` 既可以写数组，也可以写单个字符串。未知键会直接报错，
+避免拼错键名导致配置静默失效。已不再支持 YAML —— 传入 `.yaml`/`.yml` 会明确
+提示改用 TOML。
 
 ### 示例
 
@@ -222,6 +247,9 @@ gofs -A /srv/data
 
 # 只读分享，开启搜索与打包下载（典型的公开共享配置）
 gofs --allow-search --allow-archive --allow-hash --port 80 /srv/data
+
+# 从 TOML 配置文件启动
+gofs -c gofs.toml
 
 # 要求用户名/密码并具备写权限
 gofs -a 'admin:123@/:rw'

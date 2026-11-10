@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BurntSushi/toml"
+
 	"github.com/zxysilent/gofs/internal/auth"
 	"github.com/zxysilent/gofs/internal/fsutil"
 	"github.com/zxysilent/gofs/internal/logx"
@@ -237,201 +239,137 @@ func parseCLI(argv []string) (cli map[string][]string, positional []string, meta
 	return cli, positional, meta, nil
 }
 
-// ---- Config (YAML subset) parsing ----
-
-func parseYAML(data string) (map[string]interface{}, error) {
-	result := map[string]interface{}{}
-	lines := strings.Split(data, "\n")
-	var currentKey string
-	for i := 0; i < len(lines); i++ {
-		line := stripYAMLComment(lines[i])
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || trimmed == "---" || strings.HasPrefix(trimmed, "#") {
-			continue
-		}
-		if strings.HasPrefix(trimmed, "- ") || trimmed == "-" {
-			item := strings.TrimSpace(strings.TrimPrefix(trimmed, "-"))
-			item = unquoteYAML(item)
-			if currentKey != "" {
-				if list, ok := result[currentKey].([]string); ok {
-					result[currentKey] = append(list, item)
-				} else {
-					result[currentKey] = []string{item}
-				}
-			}
-			continue
-		}
-		if idx := strings.IndexByte(trimmed, ':'); idx >= 0 {
-			key := strings.TrimSpace(trimmed[:idx])
-			val := strings.TrimSpace(trimmed[idx+1:])
-			currentKey = key
-			if val == "" {
-				result[key] = []string{}
-			} else {
-				result[key] = parseYAMLScalar(val)
-			}
-		}
-	}
-	return result, nil
+// fileConfig is the TOML shape of the config file. Every field is optional:
+// anything that is absent keeps the value from DefaultArgs(), and the CLI and
+// GOFS_* environment variables still win over the file.
+//
+// Keys use the same dash-separated names as the CLI flags.
+type fileConfig struct {
+	ServePath      string     `toml:"serve-path"`
+	Bind           stringList `toml:"bind"`
+	Port           int        `toml:"port"`
+	PathPrefix     string     `toml:"path-prefix"`
+	Hidden         stringList `toml:"hidden"`
+	Auth           stringList `toml:"auth"`
+	AllowAll       bool       `toml:"allow-all"`
+	AllowUpload    bool       `toml:"allow-upload"`
+	AllowDelete    bool       `toml:"allow-delete"`
+	AllowSearch    bool       `toml:"allow-search"`
+	AllowSymlink   bool       `toml:"allow-symlink"`
+	AllowArchive   bool       `toml:"allow-archive"`
+	AllowHash      bool       `toml:"allow-hash"`
+	EnableCors     bool       `toml:"enable-cors"`
+	RenderIndex    bool       `toml:"render-index"`
+	RenderTryIndex bool       `toml:"render-try-index"`
+	RenderSpA      bool       `toml:"render-spa"`
+	Assets         string     `toml:"assets"`
+	LogFile        string     `toml:"log-file"`
+	LogLevel       string     `toml:"log-level"`
+	Compress       string     `toml:"compress"`
+	TLSCert        string     `toml:"tls-cert"`
+	TLSKey         string     `toml:"tls-key"`
 }
 
-func parseYAMLScalar(v string) interface{} {
-	if strings.HasPrefix(v, "[") && strings.HasSuffix(v, "]") {
-		inner := strings.TrimSpace(v[1 : len(v)-1])
-		if inner == "" {
-			return []string{}
-		}
-		var items []string
-		for _, it := range splitYAMLList(inner) {
-			items = append(items, unquoteYAML(strings.TrimSpace(it)))
-		}
-		return items
-	}
-	unq := unquoteYAML(v)
-	if b, err := strconv.ParseBool(unq); err == nil {
-		return b
-	}
-	return unq
-}
+// stringList accepts either a single string or an array of strings, so both
+// `bind = "127.0.0.1"` and `bind = ["127.0.0.1", "::"]` work.
+type stringList []string
 
-func splitYAMLList(s string) []string {
-	var out []string
-	var cur strings.Builder
-	inQuote := byte(0)
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if inQuote != 0 {
-			if c == inQuote {
-				inQuote = 0
-			}
-			cur.WriteByte(c)
-			continue
-		}
-		if c == '\'' || c == '"' {
-			inQuote = c
-			cur.WriteByte(c)
-			continue
-		}
-		if c == ',' {
-			out = append(out, cur.String())
-			cur.Reset()
-			continue
-		}
-		cur.WriteByte(c)
-	}
-	if cur.Len() > 0 {
-		out = append(out, cur.String())
-	}
-	return out
-}
-
-func stripYAMLComment(s string) string {
-	inQuote := byte(0)
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if inQuote != 0 {
-			if c == inQuote {
-				inQuote = 0
-			}
-			continue
-		}
-		if c == '\'' || c == '"' {
-			inQuote = c
-			continue
-		}
-		if c == '#' {
-			return s[:i]
-		}
-	}
-	return s
-}
-
-func unquoteYAML(s string) string {
-	if len(s) >= 2 {
-		if (s[0] == '\'' && s[len(s)-1] == '\'') || (s[0] == '"' && s[len(s)-1] == '"') {
-			return s[1 : len(s)-1]
-		}
-	}
-	return s
-}
-
-func loadConfig(path string) (Args, error) {
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		return Args{}, fmt.Errorf("failed to read config at %s: %w", path, err)
-	}
-	m, err := parseYAML(string(contents))
-	if err != nil {
-		return Args{}, fmt.Errorf("failed to load config at %s: %w", path, err)
-	}
-	args := DefaultArgs()
-	if v, ok := m["serve-path"].(string); ok {
-		args.ServePath = v
-	}
-	if v := yamlStringList(m["bind"]); v != nil {
-		args.Addrs, _ = parseBindAddrs(v)
-	}
-	if v, ok := m["port"].(string); ok {
-		if p, err := strconv.Atoi(v); err == nil {
-			args.Port = p
-		}
-	}
-	if v, ok := m["path-prefix"].(string); ok {
-		args.PathPrefix = v
-	}
-	if v := yamlStringList(m["hidden"]); v != nil {
-		args.Hidden = v
-	}
-	if v := yamlStringList(m["auth"]); v != nil {
-		args.Auth = mustAccessControl(v)
-	}
-	args.AllowAll = yamlBool(m["allow-all"])
-	args.AllowUpload = yamlBool(m["allow-upload"])
-	args.AllowDelete = yamlBool(m["allow-delete"])
-	args.AllowSearch = yamlBool(m["allow-search"])
-	args.AllowSymlink = yamlBool(m["allow-symlink"])
-	args.AllowArchive = yamlBool(m["allow-archive"])
-	args.AllowHash = yamlBool(m["allow-hash"])
-	args.EnableCors = yamlBool(m["enable-cors"])
-	args.RenderIndex = yamlBool(m["render-index"])
-	args.RenderTryIndex = yamlBool(m["render-try-index"])
-	args.RenderSpA = yamlBool(m["render-spa"])
-	if v, ok := m["assets"].(string); ok {
-		args.Assets = v
-	}
-	if v, ok := m["log-file"].(string); ok {
-		args.LogFile = v
-	}
-	if v, ok := m["log-level"].(string); ok {
-		args.LogLevel = v
-	}
-	if v, ok := m["compress"].(string); ok {
-		if c, err := parseCompress(v); err == nil {
-			args.Compress = c
-		}
-	}
-	if v, ok := m["tls-cert"].(string); ok {
-		args.TLSCert = v
-	}
-	if v, ok := m["tls-key"].(string); ok {
-		args.TLSKey = v
-	}
-	return args, nil
-}
-
-func yamlStringList(v interface{}) []string {
+func (s *stringList) UnmarshalTOML(v interface{}) error {
 	switch t := v.(type) {
 	case string:
-		return []string{t}
-	case []string:
-		return t
+		*s = stringList{t}
+	case []interface{}:
+		out := make(stringList, 0, len(t))
+		for _, item := range t {
+			str, ok := item.(string)
+			if !ok {
+				return fmt.Errorf("expected a string, got %T", item)
+			}
+			out = append(out, str)
+		}
+		*s = out
+	default:
+		return fmt.Errorf("expected a string or an array of strings, got %T", v)
 	}
 	return nil
 }
 
-func yamlBool(v interface{}) bool {
-	b, _ := v.(bool)
-	return b
+func loadConfig(path string) (Args, error) {
+	// 旧版本读的是 YAML；直接指出格式已变，比抛一个 TOML 语法错误有用得多。
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".yaml", ".yml":
+		return Args{}, fmt.Errorf("config `%s`: YAML is no longer supported, use TOML", path)
+	}
+
+	var cfg fileConfig
+	meta, err := toml.DecodeFile(path, &cfg)
+	if err != nil {
+		return Args{}, fmt.Errorf("failed to load config at %s: %w", path, err)
+	}
+	// 拼错的键名会被静默忽略，配置看着生效其实没有 —— 直接报错更安全。
+	if undecoded := meta.Undecoded(); len(undecoded) > 0 {
+		keys := make([]string, len(undecoded))
+		for i, k := range undecoded {
+			keys[i] = k.String()
+		}
+		return Args{}, fmt.Errorf("config `%s`: unknown key(s): %s", path, strings.Join(keys, ", "))
+	}
+
+	args := DefaultArgs()
+	if cfg.ServePath != "" {
+		args.ServePath = cfg.ServePath
+	}
+	if len(cfg.Bind) > 0 {
+		addrs, err := parseBindAddrs(cfg.Bind)
+		if err != nil {
+			return Args{}, fmt.Errorf("config `%s`: %w", path, err)
+		}
+		args.Addrs = addrs
+	}
+	if cfg.Port != 0 {
+		if cfg.Port < 0 || cfg.Port > 65535 {
+			return Args{}, fmt.Errorf("config `%s`: invalid port %d", path, cfg.Port)
+		}
+		args.Port = cfg.Port
+	}
+	if cfg.PathPrefix != "" {
+		args.PathPrefix = cfg.PathPrefix
+	}
+	if len(cfg.Hidden) > 0 {
+		args.Hidden = cfg.Hidden
+	}
+	if len(cfg.Auth) > 0 {
+		// 用返回错误而不是 panic 的版本，配置写错时给出可读提示。
+		ac, err := auth.NewAccessControl(cfg.Auth)
+		if err != nil {
+			return Args{}, fmt.Errorf("config `%s`: %w", path, err)
+		}
+		args.Auth = ac
+	}
+	args.AllowAll = cfg.AllowAll
+	args.AllowUpload = cfg.AllowUpload
+	args.AllowDelete = cfg.AllowDelete
+	args.AllowSearch = cfg.AllowSearch
+	args.AllowSymlink = cfg.AllowSymlink
+	args.AllowArchive = cfg.AllowArchive
+	args.AllowHash = cfg.AllowHash
+	args.EnableCors = cfg.EnableCors
+	args.RenderIndex = cfg.RenderIndex
+	args.RenderTryIndex = cfg.RenderTryIndex
+	args.RenderSpA = cfg.RenderSpA
+	args.Assets = cfg.Assets
+	args.LogFile = cfg.LogFile
+	args.LogLevel = cfg.LogLevel
+	if cfg.Compress != "" {
+		c, err := parseCompress(cfg.Compress)
+		if err != nil {
+			return Args{}, fmt.Errorf("config `%s`: %w", path, err)
+		}
+		args.Compress = c
+	}
+	args.TLSCert = cfg.TLSCert
+	args.TLSKey = cfg.TLSKey
+	return args, nil
 }
 
 // ---- argument assembly ----

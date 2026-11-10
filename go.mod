@@ -2,4 +2,7 @@ module github.com/zxysilent/gofs
 
 go 1.24
 
-require github.com/zxysilent/logs v0.11.2
+require (
+	github.com/BurntSushi/toml v1.6.0
+	github.com/zxysilent/logs v0.11.2
+)

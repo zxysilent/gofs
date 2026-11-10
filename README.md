@@ -195,7 +195,7 @@ go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
 gofs [OPTIONS] [serve-path]
 
 Options:
-  -c, --config <file>        Specify configuration file
+  -c, --config <file>        Specify configuration file (TOML)
   -b, --bind <addrs>         Specify bind address or unix socket
   -p, --port <port>          Specify port to listen on [default: 5000]
       --path-prefix <path>   Specify a path prefix
@@ -224,8 +224,33 @@ Options:
 ```
 
 Options can also be set through `GOFS_*` environment variables (for example
-`GOFS_PORT=5000`, `GOFS_AUTH=admin:123@/:rw`) or a YAML config file via
-`--config`.
+`GOFS_PORT=5000`, `GOFS_AUTH=admin:123@/:rw`) or a TOML config file via
+`--config`. The CLI and the environment always win over the file.
+
+### Config file
+
+Keys use the same names as the long options, and every key is optional:
+
+```toml
+# gofs.toml
+serve-path = "/srv/data"
+bind = ["0.0.0.0", "::"]
+port = 8080
+path-prefix = "files"
+hidden = ["tmp", "*.log", "*.lock"]
+auth = ["admin:123@/:rw", "@/"]
+allow-search = true
+allow-archive = true
+allow-hash = true
+compress = "medium"
+log-file = "/var/log/gofs/gofs.log"
+log-level = "info"
+```
+
+`bind`, `hidden` and `auth` accept either an array or a single string. Unknown
+keys are a hard error, so a typo never silently leaves a setting unset. YAML is
+no longer supported — `.yaml`/`.yml` paths are rejected with a message pointing
+at TOML.
 
 ### Examples
 
@@ -238,6 +263,9 @@ gofs -A /srv/data
 
 # read-only share with search and zip download (a typical public share)
 gofs --allow-search --allow-archive --allow-hash --port 80 /srv/data
+
+# everything from a TOML file
+gofs -c gofs.toml
 
 # require a username/password with write access
 gofs -a 'admin:123@/:rw'
