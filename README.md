@@ -109,7 +109,7 @@ Pin a version, or choose where it lands:
 
 ```sh
 # specific version
-curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.3
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.2.0
 
 # no sudo needed
 curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
@@ -128,7 +128,7 @@ Grab the archive for your platform from the
 the binary on your `PATH`:
 
 ```sh
-ver=0.1.3
+ver=0.2.0
 base="https://github.com/zxysilent/gofs/releases/download/v${ver}"
 curl -fsSLO "${base}/SHA256SUMS"
 curl -fsSLO "${base}/gofs_${ver}_linux_amd64.tar.gz"
@@ -186,7 +186,7 @@ bash install-deps.sh          # npm install + npm run build
 A release build bakes the version in at link time:
 
 ```sh
-go build -trimpath -ldflags "-s -w -X main.version=0.1.3" -o gofs .
+go build -trimpath -ldflags "-s -w -X main.version=0.2.0" -o gofs .
 ```
 
 ## Usage
@@ -423,8 +423,8 @@ Everything lives in `.github/workflows/`:
 Cut a release with:
 
 ```sh
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 The installer reads that release, so the one-line install command always
