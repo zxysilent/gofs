@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
+	"github.com/spf13/pflag"
 
 	"github.com/zxysilent/gofs/internal/auth"
 	"github.com/zxysilent/gofs/internal/fsutil"
@@ -112,12 +114,6 @@ func mustAccessControl(rules []string) auth.AccessControl {
 
 // ---- CLI parsing ----
 
-type cliMeta struct {
-	help        bool
-	version     bool
-	completions string
-}
-
 // Result is what ParseArgs returns: either a parsed configuration or a request
 // for help / version / shell completions.
 type Result struct {
@@ -127,116 +123,123 @@ type Result struct {
 	Completions string
 }
 
-var valueOpts = map[string]string{ // long -> canonical
-	"--config":      "config",
-	"--bind":        "bind",
-	"--port":        "port",
-	"--path-prefix": "path-prefix",
-	"--hidden":      "hidden",
-	"--auth":        "auth",
-	"--assets":      "assets",
-	"--log-file":    "log-file",
-	"--log-level":   "log-level",
-	"--compress":    "compress",
-	"--tls-cert":    "tls-cert",
-	"--tls-key":     "tls-key",
-	"--completions": "completions",
+// ---- CLI parsing ----
+//
+// pflag 提供 POSIX/GNU 风格：-p 5000、--port=5000、-p5000、-Ab（短选项合并）
+// 都支持，并且默认允许位置参数与选项交错出现（gofs /srv/data -A）。
+// flag 包这三样都做不到，所以不用它。
+
+// flags 收集命令行上出现的值。只有 fs.Changed(name) 为真时，对应字段才有意义；
+// 否则该选项应当回退到环境变量、配置文件或默认值。
+type flags struct {
+	config         string
+	bind           []string
+	port           int
+	pathPrefix     string
+	hidden         []string
+	auth           []string
+	assets         string
+	logFile        string
+	logLevel       string
+	compress       string
+	tlsCert        string
+	tlsKey         string
+	completions    string
+	allowAll       bool
+	allowUpload    bool
+	allowDelete    bool
+	allowSearch    bool
+	allowSymlink   bool
+	allowArchive   bool
+	allowHash      bool
+	enableCors     bool
+	renderIndex    bool
+	renderTryIndex bool
+	renderSpA      bool
+	help           bool
+	version        bool
 }
 
-var valueShortOpts = map[string]string{ // short -> canonical
-	"-c": "config",
-	"-b": "bind",
-	"-p": "port",
-	"-a": "auth",
+// newFlagSet registers every option on a FlagSet. The usage strings are never
+// printed (printHelp in main.go owns the help text), but pflag wants them.
+func newFlagSet(f *flags) *pflag.FlagSet {
+	fs := pflag.NewFlagSet("gofs", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.Usage = func() {}
+	fs.SetOutput(io.Discard)
+
+	fs.StringVarP(&f.config, "config", "c", "", "configuration file (TOML)")
+	fs.StringSliceVarP(&f.bind, "bind", "b", nil, "bind address or unix socket")
+	fs.IntVarP(&f.port, "port", "p", 0, "port to listen on")
+	fs.StringVar(&f.pathPrefix, "path-prefix", "", "path prefix")
+	fs.StringSliceVar(&f.hidden, "hidden", nil, "hide paths from directory listings")
+	fs.StringArrayVarP(&f.auth, "auth", "a", nil, "auth rules, e.g. user:pass@/dir1:rw,/dir2")
+	fs.BoolVarP(&f.allowAll, "allow-all", "A", false, "allow all operations")
+	fs.BoolVar(&f.allowUpload, "allow-upload", false, "allow upload files/folders")
+	fs.BoolVar(&f.allowDelete, "allow-delete", false, "allow delete files/folders")
+	fs.BoolVar(&f.allowSearch, "allow-search", false, "allow search files/folders")
+	fs.BoolVar(&f.allowSymlink, "allow-symlink", false, "allow symlink outside root directory")
+	fs.BoolVar(&f.allowArchive, "allow-archive", false, "allow download folders as archive")
+	fs.BoolVar(&f.allowHash, "allow-hash", false, "allow ?hash query for sha256")
+	fs.BoolVar(&f.enableCors, "enable-cors", false, "enable CORS")
+	fs.BoolVar(&f.renderIndex, "render-index", false, "serve index.html for directories")
+	fs.BoolVar(&f.renderTryIndex, "render-try-index", false, "serve index.html, else list the directory")
+	fs.BoolVar(&f.renderSpA, "render-spa", false, "serve as an SPA")
+	fs.StringVar(&f.assets, "assets", "", "override the built-in assets directory")
+	fs.StringVar(&f.logFile, "log-file", "", "file to write logs to")
+	fs.StringVar(&f.logLevel, "log-level", "", "log level: debug, info, warn, error")
+	fs.StringVar(&f.compress, "compress", "", "zip compress level: none, low, medium, high")
+	fs.StringVar(&f.completions, "completions", "", "print shell completion script")
+	fs.StringVar(&f.tlsCert, "tls-cert", "", "TLS certificate path")
+	fs.StringVar(&f.tlsKey, "tls-key", "", "TLS private key path")
+	fs.BoolVarP(&f.help, "help", "h", false, "print help")
+	fs.BoolVarP(&f.version, "version", "V", false, "print version")
+	return fs
 }
 
-var boolOpts = map[string]string{ // long -> canonical
-	"--allow-all":        "allow-all",
-	"--allow-upload":     "allow-upload",
-	"--allow-delete":     "allow-delete",
-	"--allow-search":     "allow-search",
-	"--allow-symlink":    "allow-symlink",
-	"--allow-archive":    "allow-archive",
-	"--allow-hash":       "allow-hash",
-	"--enable-cors":      "enable-cors",
-	"--render-index":     "render-index",
-	"--render-try-index": "render-try-index",
-	"--render-spa":       "render-spa",
-}
-
-var boolShortOpts = map[string]string{
-	"-A": "allow-all",
-}
-
-func parseCLI(argv []string) (cli map[string][]string, positional []string, meta cliMeta, err error) {
-	cli = map[string][]string{}
-	i := 0
-	for i < len(argv) {
-		arg := argv[i]
-		switch {
-		case arg == "--":
-			positional = append(positional, argv[i+1:]...)
-			return cli, positional, meta, nil
-		case strings.HasPrefix(arg, "--"):
-			name := arg
-			val := ""
-			hasEq := false
-			if idx := strings.IndexByte(arg, '='); idx >= 0 {
-				name = arg[:idx]
-				val = arg[idx+1:]
-				hasEq = true
-			}
-			switch name {
-			case "--help":
-				meta.help = true
-				return cli, positional, meta, nil
-			case "--version":
-				meta.version = true
-				return cli, positional, meta, nil
-			}
-			if canon, ok := valueOpts[name]; ok {
-				if !hasEq {
-					i++
-					if i >= len(argv) {
-						return nil, nil, meta, fmt.Errorf("missing value for %s", name)
-					}
-					val = argv[i]
-				}
-				cli[canon] = append(cli[canon], val)
-			} else if canon, ok := boolOpts[name]; ok {
-				cli[canon] = append(cli[canon], "")
-			} else {
-				return nil, nil, meta, fmt.Errorf("unknown flag `%s`", name)
-			}
-		case strings.HasPrefix(arg, "-") && len(arg) > 1:
-			first := arg[:2]
-			if canon, ok := valueShortOpts[first]; ok {
-				rest := strings.TrimPrefix(arg[2:], "=")
-				if rest == "" {
-					i++
-					if i >= len(argv) {
-						return nil, nil, meta, fmt.Errorf("missing value for %s", first)
-					}
-					rest = argv[i]
-				}
-				cli[canon] = append(cli[canon], rest)
-			} else if canon, ok := boolShortOpts[first]; ok {
-				cli[canon] = append(cli[canon], "")
-			} else if first == "-h" {
-				meta.help = true
-				return cli, positional, meta, nil
-			} else if first == "-V" {
-				meta.version = true
-				return cli, positional, meta, nil
-			} else {
-				return nil, nil, meta, fmt.Errorf("unknown flag `%s`", first)
-			}
-		default:
-			positional = append(positional, arg)
-		}
-		i++
+func parseCLI(argv []string) (*flags, *pflag.FlagSet, []string, error) {
+	f := &flags{}
+	fs := newFlagSet(f)
+	if err := fs.Parse(argv); err != nil {
+		return nil, nil, nil, err
 	}
-	return cli, positional, meta, nil
+	return f, fs, fs.Args(), nil
+}
+
+// pickString resolves one string option: an explicit command-line flag wins,
+// then the GOFS_* environment variable, then cur (the config-file value, which
+// already fell back to the default).
+func pickString(fs *pflag.FlagSet, name, value, env, cur string) string {
+	if fs.Changed(name) {
+		return value
+	}
+	if v := os.Getenv(env); v != "" {
+		return v
+	}
+	return cur
+}
+
+// pickBool is the boolean counterpart of pickString. GOFS_*="false"/"0" turns
+// a boolean off explicitly, which is the only way to do so from the environment.
+func pickBool(fs *pflag.FlagSet, name string, value bool, env string, cur bool) bool {
+	if fs.Changed(name) {
+		return value
+	}
+	if v := os.Getenv(env); v != "" {
+		return v != "false" && v != "0"
+	}
+	return cur
+}
+
+// splitCommaList splits an environment value such as "tmp,*.log".
+func splitCommaList(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
 }
 
 // fileConfig is the TOML shape of the config file. Every field is optional:
@@ -375,35 +378,36 @@ func loadConfig(path string) (Args, error) {
 // ---- argument assembly ----
 
 func ParseArgs(argv []string) (*Result, error) {
-	cli, positional, meta, err := parseCLI(argv)
+	f, fs, positional, err := parseCLI(argv)
 	if err != nil {
 		return nil, err
 	}
-	if meta.help || meta.version {
-		return &Result{Help: meta.help, Version: meta.version}, nil
+	if f.help {
+		return &Result{Help: true}, nil
 	}
-	if v := cliValue(cli, "completions"); v != "" {
-		return &Result{Completions: v}, nil
+	if f.version {
+		return &Result{Version: true}, nil
+	}
+	if f.completions != "" {
+		return &Result{Completions: f.completions}, nil
 	}
 
 	args := DefaultArgs()
 
-	// config file
-	if configPath := firstNonEmpty(cliValue(cli, "config"), os.Getenv("GOFS_CONFIG")); configPath != "" {
+	// config file: 作为其余选项的基线，随后被环境变量与命令行覆盖
+	if configPath := pickString(fs, "config", f.config, "GOFS_CONFIG", ""); configPath != "" {
 		args, err = loadConfig(configPath)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// serve path
-	servePath := ""
+	// serve path：位置参数 > GOFS_SERVE_PATH > 配置文件
+	servePath := args.ServePath
 	if len(positional) > 0 {
 		servePath = positional[0]
 	} else if v := os.Getenv("GOFS_SERVE_PATH"); v != "" {
 		servePath = v
-	} else {
-		servePath = args.ServePath
 	}
 	sanitized, err := sanitizePath(servePath)
 	if err != nil {
@@ -412,22 +416,27 @@ func ParseArgs(argv []string) (*Result, error) {
 	args.ServePath = sanitized
 
 	// port
-	if v := firstNonEmpty(cliValue(cli, "port"), os.Getenv("GOFS_PORT")); v != "" {
-		if p, err := strconv.Atoi(v); err == nil {
-			args.Port = p
-		} else {
+	if fs.Changed("port") {
+		if f.port < 0 || f.port > 65535 {
+			return nil, fmt.Errorf("invalid port `%d`", f.port)
+		}
+		args.Port = f.port
+	} else if v := os.Getenv("GOFS_PORT"); v != "" {
+		p, err := strconv.Atoi(v)
+		if err != nil {
 			return nil, fmt.Errorf("invalid port `%s`", v)
 		}
+		args.Port = p
 	}
 
 	// bind addrs
-	if v := multiValue(cli, "bind", true); len(v) > 0 {
-		args.Addrs, err = parseBindAddrs(v)
+	if fs.Changed("bind") {
+		args.Addrs, err = parseBindAddrs(f.bind)
 		if err != nil {
 			return nil, err
 		}
 	} else if v := os.Getenv("GOFS_BIND"); v != "" {
-		args.Addrs, err = parseBindAddrs(strings.Split(v, ","))
+		args.Addrs, err = parseBindAddrs(splitCommaList(v))
 		if err != nil {
 			return nil, err
 		}
@@ -436,9 +445,7 @@ func ParseArgs(argv []string) (*Result, error) {
 	args.PathIsFile = fsutil.IsFile(args.ServePath)
 
 	// path prefix
-	if v := firstNonEmpty(cliValue(cli, "path-prefix"), os.Getenv("GOFS_PATH_PREFIX")); v != "" {
-		args.PathPrefix = v
-	}
+	args.PathPrefix = pickString(fs, "path-prefix", f.pathPrefix, "GOFS_PATH_PREFIX", args.PathPrefix)
 	args.PathPrefix = strings.Trim(args.PathPrefix, "/")
 	if args.PathPrefix == "" {
 		args.URIPrefix = "/"
@@ -447,42 +454,40 @@ func ParseArgs(argv []string) (*Result, error) {
 	}
 
 	// hidden
-	if v := multiValue(cli, "hidden", true); len(v) > 0 {
-		args.Hidden = v
+	if fs.Changed("hidden") {
+		args.Hidden = f.hidden
 	} else if v := os.Getenv("GOFS_HIDDEN"); v != "" {
-		args.Hidden = strings.Split(v, ",")
+		args.Hidden = splitCommaList(v)
 	}
 
-	// auth
-	if v := multiValue(cli, "auth", false); len(v) > 0 {
-		args.Auth = mustAccessControl(v)
+	// auth：规则写错时给出错误而不是 panic（命令行同样来自用户输入）
+	if fs.Changed("auth") {
+		args.Auth, err = auth.NewAccessControl(f.auth)
+		if err != nil {
+			return nil, err
+		}
 	} else if v := os.Getenv("GOFS_AUTH"); v != "" {
-		args.Auth = mustAccessControl(splitAuthEnv(v))
+		args.Auth, err = auth.NewAccessControl(splitAuthEnv(v))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// bool flags
-	applyBool := func(canon, env string, target *bool) {
-		if cliSet(cli, canon) {
-			*target = true
-		} else if v := os.Getenv(env); v != "" {
-			*target = v != "false" && v != "0"
-		}
-	}
-	applyBool("allow-all", "GOFS_ALLOW_ALL", &args.AllowAll)
-	applyBool("allow-upload", "GOFS_ALLOW_UPLOAD", &args.AllowUpload)
-	applyBool("allow-delete", "GOFS_ALLOW_DELETE", &args.AllowDelete)
-	applyBool("allow-search", "GOFS_ALLOW_SEARCH", &args.AllowSearch)
-	applyBool("allow-symlink", "GOFS_ALLOW_SYMLINK", &args.AllowSymlink)
-	applyBool("allow-archive", "GOFS_ALLOW_ARCHIVE", &args.AllowArchive)
-	applyBool("allow-hash", "GOFS_ALLOW_HASH", &args.AllowHash)
-	applyBool("enable-cors", "GOFS_ENABLE_CORS", &args.EnableCors)
-	applyBool("render-index", "GOFS_RENDER_INDEX", &args.RenderIndex)
-	applyBool("render-try-index", "GOFS_RENDER_TRY_INDEX", &args.RenderTryIndex)
-	applyBool("render-spa", "GOFS_RENDER_SPA", &args.RenderSpA)
+	args.AllowAll = pickBool(fs, "allow-all", f.allowAll, "GOFS_ALLOW_ALL", args.AllowAll)
+	args.AllowUpload = pickBool(fs, "allow-upload", f.allowUpload, "GOFS_ALLOW_UPLOAD", args.AllowUpload)
+	args.AllowDelete = pickBool(fs, "allow-delete", f.allowDelete, "GOFS_ALLOW_DELETE", args.AllowDelete)
+	args.AllowSearch = pickBool(fs, "allow-search", f.allowSearch, "GOFS_ALLOW_SEARCH", args.AllowSearch)
+	args.AllowSymlink = pickBool(fs, "allow-symlink", f.allowSymlink, "GOFS_ALLOW_SYMLINK", args.AllowSymlink)
+	args.AllowArchive = pickBool(fs, "allow-archive", f.allowArchive, "GOFS_ALLOW_ARCHIVE", args.AllowArchive)
+	args.AllowHash = pickBool(fs, "allow-hash", f.allowHash, "GOFS_ALLOW_HASH", args.AllowHash)
+	args.EnableCors = pickBool(fs, "enable-cors", f.enableCors, "GOFS_ENABLE_CORS", args.EnableCors)
+	args.RenderIndex = pickBool(fs, "render-index", f.renderIndex, "GOFS_RENDER_INDEX", args.RenderIndex)
+	args.RenderTryIndex = pickBool(fs, "render-try-index", f.renderTryIndex, "GOFS_RENDER_TRY_INDEX", args.RenderTryIndex)
+	args.RenderSpA = pickBool(fs, "render-spa", f.renderSpA, "GOFS_RENDER_SPA", args.RenderSpA)
 
 	// allow-all implies all operation permissions
-	allowAll := args.AllowAll
-	if allowAll {
+	if args.AllowAll {
 		args.AllowUpload = true
 		args.AllowDelete = true
 		args.AllowSearch = true
@@ -492,7 +497,7 @@ func ParseArgs(argv []string) (*Result, error) {
 	}
 
 	// assets
-	if v := firstNonEmpty(cliValue(cli, "assets"), os.Getenv("GOFS_ASSETS")); v != "" {
+	if v := pickString(fs, "assets", f.assets, "GOFS_ASSETS", args.Assets); v != "" {
 		sanitizedAssets, err := sanitizeAssetsPath(v)
 		if err != nil {
 			return nil, err
@@ -505,18 +510,11 @@ func ParseArgs(argv []string) (*Result, error) {
 		}
 	}
 
-	// log file
-	if v := firstNonEmpty(cliValue(cli, "log-file"), os.Getenv("GOFS_LOG_FILE")); v != "" {
-		args.LogFile = v
-	}
-
-	// log level
-	if v := firstNonEmpty(cliValue(cli, "log-level"), os.Getenv("GOFS_LOG_LEVEL")); v != "" {
-		args.LogLevel = v
-	}
+	args.LogFile = pickString(fs, "log-file", f.logFile, "GOFS_LOG_FILE", args.LogFile)
+	args.LogLevel = pickString(fs, "log-level", f.logLevel, "GOFS_LOG_LEVEL", args.LogLevel)
 
 	// compress
-	if v := firstNonEmpty(cliValue(cli, "compress"), os.Getenv("GOFS_COMPRESS")); v != "" {
+	if v := pickString(fs, "compress", f.compress, "GOFS_COMPRESS", ""); v != "" {
 		c, err := parseCompress(v)
 		if err != nil {
 			return nil, err
@@ -525,12 +523,8 @@ func ParseArgs(argv []string) (*Result, error) {
 	}
 
 	// tls
-	if v := firstNonEmpty(cliValue(cli, "tls-cert"), os.Getenv("GOFS_TLS_CERT")); v != "" {
-		args.TLSCert = v
-	}
-	if v := firstNonEmpty(cliValue(cli, "tls-key"), os.Getenv("GOFS_TLS_KEY")); v != "" {
-		args.TLSKey = v
-	}
+	args.TLSCert = pickString(fs, "tls-cert", f.tlsCert, "GOFS_TLS_CERT", args.TLSCert)
+	args.TLSKey = pickString(fs, "tls-key", f.tlsKey, "GOFS_TLS_KEY", args.TLSKey)
 	if (args.TLSCert == "") != (args.TLSKey == "") {
 		if args.TLSCert == "" {
 			return nil, fmt.Errorf("no tls-cert set")
@@ -539,37 +533,6 @@ func ParseArgs(argv []string) (*Result, error) {
 	}
 
 	return &Result{Args: args}, nil
-}
-
-func cliValue(cli map[string][]string, canon string) string {
-	if v, ok := cli[canon]; ok && len(v) > 0 {
-		return v[len(v)-1]
-	}
-	return ""
-}
-
-func cliSet(cli map[string][]string, canon string) bool {
-	_, ok := cli[canon]
-	return ok
-}
-
-func multiValue(cli map[string][]string, canon string, commaSplit bool) []string {
-	v := cli[canon]
-	if len(v) == 0 {
-		return nil
-	}
-	if !commaSplit {
-		return v
-	}
-	var out []string
-	for _, s := range v {
-		for _, part := range strings.Split(s, ",") {
-			if part != "" {
-				out = append(out, part)
-			}
-		}
-	}
-	return out
 }
 
 func firstNonEmpty(vals ...string) string {
