@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.1.0); the tag must already exist'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+            goarm: 6
+          - goos: linux
+            goarch: '386'
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: freebsd
+            goarch: amd64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Derive the version from the tag: "v0.1.0" -> "0.1.0".
+      - name: Resolve version
+        id: meta
+        run: |
+          ref='${{ inputs.tag || github.ref_name }}'
+          version="${ref#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$ref" >> "$GITHUB_OUTPUT"
+          echo "Releasing $ref (version $version)"
+
+      - name: Build
+        id: build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          name="gofs_${VERSION}_${GOOS}_${GOARCH}"
+          if [ -n "${GOARM:-}" ]; then
+            name="${name}v${GOARM}"
+            export GOARM
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+          bin="gofs"
+          [ "$GOOS" = "windows" ] && bin="gofs.exe"
+
+          # CGO stays off so the binaries are fully static.
+          CGO_ENABLED=0 go build \
+            -trimpath \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "dist/${bin}" .
+
+          # Ship the license and docs alongside the binary.
+          cp LICENSE README.md README.zh-CN.md "dist/" 2>/dev/null || true
+
+          # The version must actually be baked in, otherwise fail loudly.
+          reported="$("./dist/${bin}" --version)"
+          echo "built: $reported"
+          case "$reported" in
+            *"${VERSION}") ;;
+            *) echo "::error::version mismatch: expected ${VERSION}, got ${reported}"; exit 1 ;;
+          esac
+
+          if [ "$GOOS" = "windows" ]; then
+            (cd dist && zip -q -r "../${name}.zip" .)
+            echo "archive=${name}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "${name}.tar.gz" -C dist .
+            echo "archive=${name}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checksums
+        run: |
+          sha256sum "${{ steps.build.outputs.archive }}" > "${{ steps.build.outputs.archive }}.sha256"
+          cat "${{ steps.build.outputs.archive }}.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.build.outputs.name }}
+          files: |
+            ${{ steps.build.outputs.archive }}
+            ${{ steps.build.outputs.archive }}.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Combine checksums
+        run: |
+          cd artifacts
+          # Build one SHA256SUMS file covering every published archive.
+          : > SHA256SUMS
+          for f in *.sha256; do
+            [ -e "$f" ] || continue
+            cat "$f" >> SHA256SUMS
+          done
+          rm -f ./*.sha256
+          echo "--- SHA256SUMS ---"
+          cat SHA256SUMS
+          echo "--- files ---"
+          ls -lh
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            artifacts/*
+          body: |
+            ## Install
+
+            Linux / macOS (installs the latest release into `/usr/local/bin`):
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
+            ```
+
+            Specific version or custom prefix:
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
+            ```
+
+            Or grab an archive below and verify it against `SHA256SUMS`.
+
+            ## 安装
+
+            Linux / macOS（安装最新版到 `/usr/local/bin`）：
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
+            ```

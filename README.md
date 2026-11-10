@@ -1,5 +1,10 @@
 # gofs
 
+[![CI](https://github.com/zxysilent/gofs/actions/workflows/ci.yml/badge.svg)](https://github.com/zxysilent/gofs/actions/workflows/ci.yml)
+[![Release](https://github.com/zxysilent/gofs/actions/workflows/release.yml/badge.svg)](https://github.com/zxysilent/gofs/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/zxysilent/gofs)](https://github.com/zxysilent/gofs/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **English** | [简体中文](README.zh-CN.md)
 
 A distinctive utility file server — a Go reimplementation of [dufs](https://github.com/sigoden/dufs)
@@ -73,7 +78,83 @@ English UI:
 |-------|------|
 | ![en light](docs/screenshots/08-list-light-en.png) | ![en dark](docs/screenshots/09-list-dark-en.png) |
 
-## Build
+## Install
+
+Prebuilt binaries are published for every tagged release — no Go toolchain
+required.
+
+### One-line install (Linux / macOS / FreeBSD)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
+```
+
+If you prefer not to pipe into a shell, the same script works from a subshell:
+
+```sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh)"
+```
+
+The script detects your OS/architecture, downloads the matching archive,
+verifies it against the published `SHA256SUMS`, and installs `gofs` into
+`/usr/local/bin`.
+
+Pin a version, or choose where it lands:
+
+```sh
+# specific version
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
+
+# no sudo needed
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
+
+# environment variables work too
+GOFS_INSTALL_DIR="$HOME/.local/bin" bash -c "$(curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh)"
+```
+
+Run `install.sh --help` for all options (`--dry-run`, `GOFS_BASE_URL` for
+mirrors, `GOFS_VERIFY=0` to skip the checksum).
+
+### Manual download
+
+Grab the archive for your platform from the
+[releases page](https://github.com/zxysilent/gofs/releases), verify it, and put
+the binary on your `PATH`:
+
+```sh
+curl -fsSLO https://github.com/zxysilent/gofs/releases/latest/download/SHA256SUMS
+curl -fsSLO https://github.com/zxysilent/gofs/releases/download/v0.1.0/gofs_0.1.0_linux_amd64.tar.gz
+sha256sum -c <(grep 'linux_amd64' SHA256SUMS)
+tar -xzf gofs_0.1.0_linux_amd64.tar.gz
+sudo install -m 0755 gofs /usr/local/bin/gofs
+```
+
+| Platform | Architectures |
+|----------|---------------|
+| Linux | `amd64`, `arm64`, `armv6` (also runs on armv7), `386` |
+| macOS | `amd64`, `arm64` (Apple Silicon) |
+| Windows | `amd64`, `arm64` (`.zip`) |
+| FreeBSD | `amd64` |
+
+Archives are named `gofs_<version>_<os>_<arch>.tar.gz` (`.zip` on Windows) and
+contain the binary plus `LICENSE` and both READMEs.
+
+### Docker-free systemd example
+
+```ini
+[Unit]
+Description=gofs file server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/gofs --port 80 --allow-search --allow-archive /srv/data
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Build from source
 
 Requires Go 1.24+.
 
@@ -92,6 +173,12 @@ Only when you change the frontend do you need to rebuild it:
 ```sh
 cd web
 bash install-deps.sh          # npm install + npm run build
+```
+
+A release build bakes the version in at link time:
+
+```sh
+go build -trimpath -ldflags "-s -w -X main.version=0.1.0" -o gofs .
 ```
 
 ## Usage
@@ -227,7 +314,42 @@ full parameter table.
 | `noscript.go` | text-client directory listing |
 | `web/` | Vue 3 + TypeScript SPA source (Vite build) |
 | `web/dist/` | built frontend, embedded into the binary with `go:embed` |
+| `install.sh` | release installer (one-line install) |
+| `.github/workflows/` | CI and release pipelines |
 | `docs/screenshots/` | screenshots used by this README |
+
+## CI / CD
+
+Everything lives in `.github/workflows/`:
+
+**`ci.yml`** runs on every push to `master` and on pull requests:
+
+- Go: `gofmt` check, `go vet`, `go test -race`, build
+- A smoke test that boots the binary and exercises `/gofs-healthz`, the JSON
+  listing and both language variants of the virtual docs
+- Frontend: `npm ci`, `vue-tsc --noEmit`, `npm run build`
+- A guard that fails the build if `web/dist` in the repo differs from a fresh
+  frontend build (the embedded assets must match the sources)
+
+**`release.yml`** runs when you push a `v*` tag:
+
+1. Cross-compiles with `CGO_ENABLED=0` for linux (amd64/arm64/armv6/386),
+   darwin (amd64/arm64), windows (amd64/arm64) and freebsd (amd64)
+2. Injects the tag into the binary (`-X main.version=<tag>`) and asserts that
+   `gofs --version` reports it
+3. Packages each target as `gofs_<version>_<os>_<arch>.tar.gz` (`.zip` on
+   Windows) together with `LICENSE` and both READMEs
+4. Generates `SHA256SUMS` and publishes a GitHub release with generated notes
+
+Cut a release with:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The installer reads that release, so the one-line install command always
+follows the newest tag.
 
 ## License
 

@@ -1,5 +1,10 @@
 # gofs
 
+[![CI](https://github.com/zxysilent/gofs/actions/workflows/ci.yml/badge.svg)](https://github.com/zxysilent/gofs/actions/workflows/ci.yml)
+[![Release](https://github.com/zxysilent/gofs/actions/workflows/release.yml/badge.svg)](https://github.com/zxysilent/gofs/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/zxysilent/gofs)](https://github.com/zxysilent/gofs/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 [English](README.md) | **简体中文**
 
 一个别具一格的文件服务器 —— [dufs](https://github.com/sigoden/dufs) 的 Go 重实现，
@@ -64,7 +69,80 @@ Markdown 预览与在线编辑：
 |------|------|
 | ![英文亮色](docs/screenshots/08-list-light-en.png) | ![英文暗色](docs/screenshots/09-list-dark-en.png) |
 
-## 构建
+## 安装
+
+每个 release tag 都会发布各平台预编译二进制，无需 Go 环境。
+
+### 一行命令安装（Linux / macOS / FreeBSD）
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash
+```
+
+如果不希望把脚本通过管道交给 shell，也可以用子 shell 方式：
+
+```sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh)"
+```
+
+脚本会自动识别系统与架构、下载对应压缩包、用官方 `SHA256SUMS` 校验完整性，
+并把 `gofs` 安装到 `/usr/local/bin`。
+
+指定版本，或安装到其他目录：
+
+```sh
+# 指定版本
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.1.0
+
+# 无需 sudo
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
+
+# 也支持环境变量
+GOFS_INSTALL_DIR="$HOME/.local/bin" bash -c "$(curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh)"
+```
+
+`install.sh --help` 可查看全部选项（`--dry-run` 试运行、`GOFS_BASE_URL` 指定镜像源、
+`GOFS_VERIFY=0` 跳过校验）。
+
+### 手动下载
+
+从 [releases 页面](https://github.com/zxysilent/gofs/releases) 下载对应平台的压缩包，
+校验后把二进制放进 `PATH`：
+
+```sh
+curl -fsSLO https://github.com/zxysilent/gofs/releases/latest/download/SHA256SUMS
+curl -fsSLO https://github.com/zxysilent/gofs/releases/download/v0.1.0/gofs_0.1.0_linux_amd64.tar.gz
+sha256sum -c <(grep 'linux_amd64' SHA256SUMS)
+tar -xzf gofs_0.1.0_linux_amd64.tar.gz
+sudo install -m 0755 gofs /usr/local/bin/gofs
+```
+
+| 平台 | 架构 |
+|------|------|
+| Linux | `amd64`、`arm64`、`armv6`（armv7 机器同样可用）、`386` |
+| macOS | `amd64`、`arm64`（Apple Silicon） |
+| Windows | `amd64`、`arm64`（`.zip`） |
+| FreeBSD | `amd64` |
+
+压缩包命名规则为 `gofs_<版本>_<系统>_<架构>.tar.gz`（Windows 为 `.zip`），
+内含二进制、`LICENSE` 和两份 README。
+
+### systemd 服务示例
+
+```ini
+[Unit]
+Description=gofs file server
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/gofs --port 80 --allow-search --allow-archive /srv/data
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## 从源码构建
 
 需要 Go 1.24+。
 
@@ -81,6 +159,12 @@ go build -o gofs .
 ```sh
 cd web
 bash install-deps.sh          # npm install + npm run build
+```
+
+发布构建会在链接期写入版本号：
+
+```sh
+go build -trimpath -ldflags "-s -w -X main.version=0.1.0" -o gofs .
 ```
 
 ## 使用
@@ -211,7 +295,37 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 | `noscript.go` | 面向文本客户端的目录列表 |
 | `web/` | Vue 3 + TypeScript SPA 源码（Vite 构建） |
 | `web/dist/` | 构建后的前端产物，通过 `go:embed` 内嵌进二进制 |
+| `install.sh` | 发布版安装脚本（一行命令安装） |
+| `.github/workflows/` | CI 与发布流水线 |
 | `docs/screenshots/` | 本 README 使用的截图 |
+
+## CI / CD
+
+全部定义在 `.github/workflows/`：
+
+**`ci.yml`** —— 每次推送到 `master` 以及 Pull Request 时运行：
+
+- Go：`gofmt` 检查、`go vet`、`go test -race`、构建
+- 冒烟测试：启动二进制并验证 `/gofs-healthz`、JSON 目录列表、两套语言的虚拟文档
+- 前端：`npm ci`、`vue-tsc --noEmit`、`npm run build`
+- 一致性检查：若仓库中的 `web/dist` 与重新构建的结果不一致则失败（内嵌资源必须与源码匹配）
+
+**`release.yml`** —— 推送 `v*` tag 时运行：
+
+1. 以 `CGO_ENABLED=0` 交叉编译：linux（amd64/arm64/armv6/386）、darwin（amd64/arm64）、
+   windows（amd64/arm64）、freebsd（amd64）
+2. 把 tag 写入二进制（`-X main.version=<tag>`），并断言 `gofs --version` 输出该版本
+3. 打包为 `gofs_<版本>_<系统>_<架构>.tar.gz`（Windows 为 `.zip`），附带 `LICENSE` 和两份 README
+4. 生成 `SHA256SUMS`，创建带自动变更说明的 GitHub Release
+
+发布新版本：
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+安装脚本读取的就是该 release，因此一行安装命令始终跟随最新 tag。
 
 ## 许可证
 

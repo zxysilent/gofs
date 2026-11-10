@@ -21,8 +21,13 @@ import (
 	"time"
 )
 
+// version is a variable rather than a constant so release builds can inject
+// the tag at link time: -ldflags "-X main.version=$(git describe --tags)".
+// It is also embedded into the static asset URL prefix, so a mismatch between
+// builds never serves stale assets from a browser cache.
+var version = "0.1.0-dev"
+
 const (
-	version                = "0.1.0"
 	indexName              = "index.html"
 	resumableUploadMinSize = 20971520 // 20M
 	healthCheckPath        = "gofs-healthz"
