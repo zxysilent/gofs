@@ -617,7 +617,8 @@ body {
   align-items: center;
   gap: 8px;
   padding: 18px 8px;
-  border: 1px solid transparent;
+  /* 默认即显示虚线边界，便于看清每个卡片的作用范围 */
+  border: 1px dashed var(--border);
   border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
@@ -625,7 +626,7 @@ body {
 
 .file-card:hover {
   background: var(--bg-hover);
-  border-color: var(--border);
+  border-color: var(--accent);
 }
 
 .file-card-icon {
