@@ -1542,6 +1542,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 与 .preview-overlay 一致：小屏时四周留白，弹窗不贴边 */
+  padding: 24px;
   z-index: 1000;
 }
 
@@ -1738,12 +1740,13 @@ body {
   height: 15px;
 }
 
+/* 使用说明弹窗：尺寸跟预览弹窗（.preview-modal）保持一致，
+   两个窗口互相切换时不会一大一小。固定尺寸也保证切换 tab 时不跳动。 */
 .help-box {
-  width: 760px;
-  max-width: 94vw;
-  /* 固定高度：切换 tab 时窗体尺寸恒定，不跳动 */
-  height: 84vh;
-  max-height: 720px;
+  width: min(960px, 100%);
+  height: min(720px, 100%);
+  /* .modal-box 的 380px / 90vw 是为确认框准备的，这里要放开 */
+  max-width: none;
   display: flex;
   flex-direction: column;
 }
