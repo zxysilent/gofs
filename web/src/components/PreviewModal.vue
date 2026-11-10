@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { PathItem } from '../types'
+import { parentRelPath } from '../types'
 import { fileKind, formatSize, formatTime } from '../utils'
 import { absUrl, readText, fileHash, saveFile } from '../api'
 import { renderMarkdown } from '../markdown'
+import { renderMath } from '../math'
 import { ICONS } from '../icons'
 import { showToast, showConfirmDialog, copyText } from '../dialog'
 import { t } from '../i18n'
@@ -13,6 +15,13 @@ const emit = defineEmits<{ (e: 'close'): void; (e: 'saved'): void }>()
 
 const kind = fileKind(props.item.name)
 const url = absUrl(props.path)
+
+// 文档所在目录的绝对 URL（以 / 结尾），用于把 md 里的相对图片/链接解析成
+// 真实地址；否则它们会相对当前页面路径，深层目录下的图片全都 404。
+const docBaseUrl = (() => {
+  const dir = absUrl(parentRelPath(props.path))
+  return dir.endsWith('/') ? dir : dir + '/'
+})()
 
 // 可编辑的文本类文件
 const editable = computed(() =>
@@ -33,7 +42,22 @@ const mdPreview = ref(false) // markdown 编辑时的预览开关
 
 const dirty = computed(() => editing.value && editContent.value !== originalContent.value)
 
-const mdRendered = computed(() => renderMarkdown(editContent.value))
+const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: docBaseUrl }))
+
+// 预览区 DOM：公式需要拿到真实节点才能排版（v-html 内容无法用模板控制）。
+const bodyRef = ref<HTMLElement | null>(null)
+const mdPreviewRef = ref<HTMLElement | null>(null)
+
+// 内容变化后把公式占位节点替换为排版结果（KaTeX 按需加载）。
+// 两个容器互斥：只读预览用 bodyRef，编辑态预览用 mdPreviewRef。
+watch(
+  [bodyHtml, mdRendered, mdPreview],
+  async () => {
+    await nextTick()
+    await renderMath(bodyRef.value ?? mdPreviewRef.value)
+  },
+  { flush: 'post' },
+)
 
 function download() {
   const a = document.createElement('a')
@@ -137,7 +161,7 @@ function escHtml(s: string): string {
 // 把文本内容渲染为只读预览（code/json/text 用 pre，markdown 渲染）。
 function renderTextView(text: string) {
   if (kind === 'markdown') {
-    bodyHtml.value = `<div class="markdown-body">${renderMarkdown(text)}</div>`
+    bodyHtml.value = `<div class="markdown-body">${renderMarkdown(text, { baseUrl: docBaseUrl })}</div>`
   } else {
     bodyHtml.value = `<pre class="code-block">${escHtml(text)}</pre>`
   }
@@ -209,7 +233,12 @@ onMounted(async () => {
         <div v-else-if="bodyError" class="preview-error">{{ bodyError }}</div>
         <template v-else-if="editing">
           <!-- markdown 编辑：左编辑右预览 / 切换预览 -->
-          <div v-if="kind === 'markdown' && mdPreview" class="markdown-body editor-preview" v-html="mdRendered"></div>
+          <div
+            v-if="kind === 'markdown' && mdPreview"
+            ref="mdPreviewRef"
+            class="markdown-body editor-preview"
+            v-html="mdRendered"
+          ></div>
           <textarea
             v-else
             v-model="editContent"
@@ -218,7 +247,7 @@ onMounted(async () => {
             @keydown="onEditorKeydown"
           ></textarea>
         </template>
-        <div v-else v-html="bodyHtml"></div>
+        <div v-else ref="bodyRef" v-html="bodyHtml"></div>
         <div v-if="!loading && !editing && kind === 'binary'" style="text-align:center;margin-top:12px">
           <button class="btn btn-primary" @click="download">{{ t('preview.downloadFile') }}</button>
         </div>

@@ -20,9 +20,11 @@
 **网页界面**（Vue 3 + TypeScript，内嵌进二进制）
 
 - 左右分栏：左侧为按需加载的目录树，右侧为列表 / 网格视图
-- 面包屑导航 + hash 路由（`#/path`），深链和刷新都不丢当前位置，全程无整页加载
+- 面包屑导航 + 真实路径路由，深链和刷新都不丢当前位置，全程无整页加载
 - **亮色 / 暗色 / 自动主题** 与 **中文 / 英文界面**，偏好保存在浏览器本地
 - 在线预览：图片、视频、音频、PDF、Markdown、代码、JSON、纯文本
+- Markdown 渲染支持 GFM 表格、**KaTeX 公式**（`$...$`、`$$...$$`、`\(...\)`、
+  `\[...\]`），图片与链接按文档所在目录解析相对路径
 - 文本就地编辑，`Ctrl/Cmd+S` 保存，Markdown 可切换预览
 - 上传实时进度、任意目录打包下载、递归搜索
 - 分隔条可拖动调整侧栏宽度；过长名称自动省略号截断
@@ -231,8 +233,8 @@ gofs --tls-cert cert.pem --tls-key key.pem
 不需要维护格式模板，也不会把时间戳再拼一次塞进引号包裹的消息里：
 
 ```
-time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-begin ip=127.0.0.1 GET=/gamma
-time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-end status=200 size=425 dur=116.841µs
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=xbegin ip=127.0.0.1 GET=/gamma
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=xclose status=200 size=425 dur=116.841µs
 ```
 
 请求行写"谁要了什么"，结果行写"结果如何"，每个字段只出现一次：
@@ -240,7 +242,7 @@ time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-end status=200 
 | 字段 | 所在行 | 含义 |
 |------|--------|------|
 | `trace` | 两行 | 请求 id，同时作为 `X-Request-ID` 响应头返回 |
-| `caller` | 两行 | `api-begin` 或 `api-end` |
+| `caller` | 两行 | `xbegin` 或 `xclose` |
 | `ip` | begin | 客户端地址 |
 | `<METHOD>` | begin | 请求方法作字段名，路径与查询串作值（`GET=/a/b.md`） |
 | `status` / `size` / `dur` | end | 响应状态码、响应体字节数、处理耗时 |
@@ -326,6 +328,9 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 | `utils.go` | URI 编码、glob、range 解析、内容类型 |
 | `noscript.go` | 面向文本客户端的目录列表 |
 | `web/` | Vue 3 + TypeScript SPA 源码（Vite 构建） |
+| `web/src/markdown.ts` | Markdown 解析（表格、列表、公式占位） |
+| `web/src/math.ts` | KaTeX 按需加载与公式排版 |
+| `web/scripts/` | 构建后处理（剔除无用字体格式） |
 | `web/dist/` | 构建后的前端产物，通过 `go:embed` 内嵌进二进制 |
 | `install.sh` | 发布版安装脚本（一行命令安装） |
 | `.github/workflows/` | CI 与发布流水线 |

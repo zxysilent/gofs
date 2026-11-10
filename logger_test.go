@@ -44,7 +44,7 @@ func TestAccessLogEndRecord(t *testing.T) {
 	for _, want := range []string{
 		"level=INF",
 		"trace=abc12345",
-		"caller=api-end",
+		"caller=xclose",
 		"status=200",
 		"size=260",
 		"dur=824µs",
@@ -77,7 +77,7 @@ func TestAccessLogBeginRecord(t *testing.T) {
 	for _, want := range []string{
 		"level=INF",
 		"trace=abc12345",
-		"caller=api-begin",
+		"caller=xbegin",
 		"ip=192.0.2.10",
 		"GET=/a/b.md?x=1",
 	} {
@@ -125,7 +125,7 @@ func TestAccessLogNoCredentials(t *testing.T) {
 	req.SetBasicAuth("alice", "secret")
 
 	out := captureLog(t, logs.LevelInfo, func() { l.begin(req, "abc12345") })
-	if !strings.Contains(out, "caller=api-begin") {
+	if !strings.Contains(out, "caller=xbegin") {
 		t.Fatalf("expected a begin record: %s", out)
 	}
 	if strings.Contains(out, "secret") || strings.Contains(out, "alice") {
@@ -205,7 +205,7 @@ func TestAccessLogDisabledByServer(t *testing.T) {
 		}
 		res.Body.Close()
 	})
-	if strings.Contains(out, "caller=api-end") || strings.Contains(out, "caller=api-begin") {
+	if strings.Contains(out, "caller=xclose") || strings.Contains(out, "caller=xbegin") {
 		t.Errorf("access log should be disabled: %s", out)
 	}
 }

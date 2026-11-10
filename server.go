@@ -44,6 +44,13 @@ var assetsFS embed.FS
 // built frontend (Vue app).
 const assetsPrefixDir = "web/dist"
 
+// assetsPlaceholder is the build-time asset base baked into the frontend by
+// Vite (see web/vite.config.ts). renderApp rewrites it in index.html; the same
+// path also appears inside the built JS/CSS (dynamic chunk imports, @font-face
+// urls), which cannot be rewritten, so it is accepted as an alias.
+// 无前导斜杠，与 assetsPrefix 保持一致（reqPath 已被 resolvePath 去掉前导斜杠）。
+const assetsPlaceholder = "__GOFS_ASSETS__/"
+
 var embeddedIndexHTML = mustAsset(assetsPrefixDir + "/index.html")
 
 func mustAsset(name string) string {
@@ -539,30 +546,15 @@ func (s *Server) serveVirtualDoc(gen docGenFunc, w *responseWriter, r *http.Requ
 }
 
 func (s *Server) handleInternal(reqPath string, w *responseWriter) (bool, error) {
+	// 前端产物里对静态资源的引用是构建期占位符（见 web/vite.config.ts 的 base），
+	// 只有 index.html 会在 renderApp 中被替换成真实前缀。按需加载的 chunk
+	// （公式渲染的 KaTeX）与 CSS 里的字体 url() 无法被替换，因此这里把占位符
+	// 当作真实前缀的别名来服务，否则它们会 404。
+	if name, ok := strings.CutPrefix(reqPath, assetsPlaceholder); ok {
+		return s.serveAsset(name, w), nil
+	}
 	if name, ok := strings.CutPrefix(reqPath, s.assetsPrefix); ok {
-		if s.args.assets != "" {
-			p := filepath.Join(s.args.assets, name)
-			if fileExists(p) {
-				return true, s.handleSendFile(p, nil, false, w)
-			}
-			statusNotFound(w)
-			return true, nil
-		}
-		name = strings.TrimPrefix(name, "/")
-		if name == "" || name == "index.html" {
-			name = "index.html"
-		}
-		data, err := assetsFS.ReadFile(assetsPrefixDir + "/" + name)
-		if err != nil {
-			statusNotFound(w)
-			return true, nil
-		}
-		w.Header().Set("Content-Type", contentTypeByName(name))
-		w.Header().Set("Cache-Control", cacheControlForAsset(name))
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-		w.Write(data)
-		return true, nil
+		return s.serveAsset(name, w), nil
 	}
 	if reqPath == healthCheckPath {
 		body := `{"status":"OK"}`
@@ -572,6 +564,37 @@ func (s *Server) handleInternal(reqPath string, w *responseWriter) (bool, error)
 		return true, nil
 	}
 	return false, nil
+}
+
+// serveAsset serves one file from the built frontend, either from --assets
+// (an override directory) or from the embedded dist.
+func (s *Server) serveAsset(name string, w *responseWriter) bool {
+	if s.args.assets != "" {
+		p := filepath.Join(s.args.assets, name)
+		if fileExists(p) {
+			if err := s.handleSendFile(p, nil, false, w); err != nil {
+				statusNotFound(w)
+			}
+			return true
+		}
+		statusNotFound(w)
+		return true
+	}
+	name = strings.TrimPrefix(name, "/")
+	if name == "" {
+		name = "index.html"
+	}
+	data, err := assetsFS.ReadFile(assetsPrefixDir + "/" + name)
+	if err != nil {
+		statusNotFound(w)
+		return true
+	}
+	w.Header().Set("Content-Type", contentTypeByName(name))
+	w.Header().Set("Cache-Control", cacheControlForAsset(name))
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	w.Write(data)
+	return true
 }
 
 // contentTypeByName maps a static asset file name to a MIME type.

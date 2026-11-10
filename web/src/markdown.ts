@@ -2,11 +2,25 @@
 //
 // Supports: fenced code blocks, ATX headings, GFM tables (with alignment),
 // nested ordered/unordered lists, blockquotes, horizontal rules, images,
-// links, bare autolinks, bold/italic/strikethrough and inline code.
-// Inline code is protected from further formatting.
+// links, bare autolinks, bold/italic/strikethrough, inline code and math
+// (KaTeX-compatible placeholders, rendered by ./math.ts).
+//
+// Images and links may be relative to the document; pass `baseUrl` (the
+// absolute directory URL, ending with "/") so they resolve against it instead
+// of against the current page.
 import { esc } from './icons'
 
 type Align = 'left' | 'center' | 'right'
+
+export interface MarkdownOptions {
+  /** 文档所在目录的绝对 URL，必须以 "/" 结尾。用于解析相对图片/链接。 */
+  baseUrl?: string
+}
+
+/** 渲染期间的解析上下文；显式传参，避免模块级可变状态。 */
+interface Ctx {
+  base: string
+}
 
 const RE_FENCE = /^\s{0,3}(`{3,}|~{3,})\s*([^`\s]*)\s*$/
 const RE_HEADING = /^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/
@@ -27,7 +41,23 @@ const isBlockStart = (line: string): boolean =>
   RE_HR.test(line) ||
   RE_QUOTE.test(line) ||
   RE_UL.test(line) ||
-  RE_OL.test(line)
+  RE_OL.test(line) ||
+  isMathFence(line)
+
+// ---- math ----
+// 两种常见写法都支持：$$...$$ / \[...\] 为独立公式，$...$ / \(...\) 为行内公式。
+// 这里只输出带原始 TeX 的占位节点，真正的排版交给 math.ts（按需加载 KaTeX）。
+const MATH_CLASS = 'md-math'
+
+function isMathFence(line: string): boolean {
+  const t = line.trimStart()
+  return t.startsWith('$$') || t.startsWith('\\[')
+}
+
+function mathNode(tex: string, display: boolean): string {
+  const tag = display ? 'div' : 'span'
+  return `<${tag} class="${MATH_CLASS}" data-display="${display ? '1' : '0'}">${esc(tex)}</${tag}>`
+}
 
 // splitRow breaks a table row into trimmed cells, honouring `\|` escapes.
 function splitRow(row: string): string[] {
@@ -63,7 +93,8 @@ function cellAlign(delim: string): Align | '' {
   return ''
 }
 
-export function renderMarkdown(src: string): string {
+export function renderMarkdown(src: string, opts?: MarkdownOptions): string {
+  const ctx: Ctx = { base: opts?.baseUrl ?? '' }
   const lines = src.replace(/\r\n?/g, '\n').split('\n')
   const out: string[] = []
   let i = 0
@@ -94,6 +125,38 @@ export function renderMarkdown(src: string): string {
       continue
     }
 
+    // ---- block math ----
+    // $$...$$ 或 \[...\]，可跨行；单独成块，不与段落混排。
+    if (isMathFence(line)) {
+      const fenceText = line.trimStart()
+      const open = fenceText.startsWith('$$') ? '$$' : '\\['
+      const close = open === '$$' ? '$$' : '\\]'
+      const rest = fenceText.slice(open.length)
+      const trimmedRest = rest.trimEnd()
+      // 单行写法：$$x$$ / \[x\]
+      if (trimmedRest.endsWith(close) && trimmedRest.length >= close.length) {
+        out.push(mathNode(trimmedRest.slice(0, -close.length).trim(), true))
+        i++
+        continue
+      }
+      const buf: string[] = []
+      if (rest.trim() !== '') buf.push(rest)
+      i++
+      while (i < lines.length) {
+        const cur = lines[i]
+        const t = cur.trimEnd()
+        if (t.endsWith(close)) {
+          buf.push(t.slice(0, -close.length))
+          i++
+          break
+        }
+        buf.push(cur)
+        i++
+      }
+      out.push(mathNode(buf.join('\n').trim(), true))
+      continue
+    }
+
     // ---- GFM table ----
     if (line.includes('|') && i + 1 < lines.length && isTableDelim(lines[i + 1])) {
       const header = splitRow(line)
@@ -106,7 +169,7 @@ export function renderMarkdown(src: string): string {
       }
       const cell = (tag: 'th' | 'td', text: string, idx: number): string => {
         const a = aligns[idx]
-        return `<${tag}${a ? ` class="md-align-${a}"` : ''}>${inline(text)}</${tag}>`
+        return `<${tag}${a ? ` class="md-align-${a}"` : ''}>${inline(text, ctx)}</${tag}>`
       }
       const head = header.map((c, idx) => cell('th', c, idx)).join('')
       const body = rows
@@ -122,7 +185,7 @@ export function renderMarkdown(src: string): string {
     const heading = RE_HEADING.exec(line)
     if (heading) {
       const lvl = heading[1].length
-      out.push(`<h${lvl}>${inline(heading[2])}</h${lvl}>`)
+      out.push(`<h${lvl}>${inline(heading[2], ctx)}</h${lvl}>`)
       i++
       continue
     }
@@ -143,13 +206,13 @@ export function renderMarkdown(src: string): string {
         buf.push(q[1])
         i++
       }
-      out.push(`<blockquote>${buf.map(inline).join('<br/>')}</blockquote>`)
+      out.push(`<blockquote>${buf.map((l) => inline(l, ctx)).join('<br/>')}</blockquote>`)
       continue
     }
 
     // ---- lists ----
     if (RE_UL.test(line) || RE_OL.test(line)) {
-      i = renderList(lines, i, out)
+      i = renderList(lines, i, out, ctx)
       continue
     }
 
@@ -168,7 +231,7 @@ export function renderMarkdown(src: string): string {
       continue
     }
     out.push(
-      `<p>${buf.map((l) => inline(l.trim()) + (/ {2,}$/.test(l) ? '<br/>' : '')).join('\n')}</p>`,
+      `<p>${buf.map((l) => inline(l.trim(), ctx) + (/ {2,}$/.test(l) ? '<br/>' : '')).join('\n')}</p>`,
     )
   }
 
@@ -177,7 +240,7 @@ export function renderMarkdown(src: string): string {
 
 // renderList walks a whole list block, tracking indentation so nested lists
 // can be emitted inside their parent <li>.
-function renderList(lines: string[], start: number, out: string[]): number {
+function renderList(lines: string[], start: number, out: string[], ctx: Ctx): number {
   const stack: { indent: number; tag: 'ul' | 'ol' }[] = []
   let openLi = false
   const closeLi = () => {
@@ -205,7 +268,7 @@ function renderList(lines: string[], start: number, out: string[]): number {
       // Lazy continuation: an indented, non-blank line that is not itself a
       // block start belongs to the item above, so keep the <li> open.
       if (openLi && !isBlockStart(line)) {
-        out.push(inline(line.trim()))
+        out.push(inline(line.trim(), ctx))
         i++
         continue
       }
@@ -234,7 +297,7 @@ function renderList(lines: string[], start: number, out: string[]): number {
       }
     }
 
-    out.push(`<li>${inline(text)}`)
+    out.push(`<li>${inline(text, ctx)}`)
     openLi = true
     i++
   }
@@ -244,32 +307,63 @@ function renderList(lines: string[], start: number, out: string[]): number {
   return i
 }
 
-// Code spans are swapped for placeholders before formatting runs, so their
-// contents are never re-interpreted, while emphasis may still wrap them
+// Code spans and math are swapped for placeholders before formatting runs, so
+// their contents are never re-interpreted, while emphasis may still wrap them
 // (e.g. **`code`** -> <strong><code>code</code></strong>).
-const CODE_MARK = '\u0000'
+const HOLD_MARK = '\u0000'
 
-function inline(s: string): string {
-  const codes: string[] = []
-  const masked = s.replace(/(`+)([\s\S]*?)\1/g, (_m, _fence, code: string) => {
-    codes.push(`<code>${esc(code.trim())}</code>`)
-    return `${CODE_MARK}${codes.length - 1}${CODE_MARK}`
-  })
-  return inlineText(masked).replace(
+function inline(s: string, ctx: Ctx): string {
+  const held: string[] = []
+  const hold = (html: string): string => `${HOLD_MARK}${held.push(html) - 1}${HOLD_MARK}`
+
+  // 1) code spans first: `$` inside code must not start a formula.
+  let masked = s.replace(/(`+)([\s\S]*?)\1/g, (_m, _f, code: string) =>
+    hold(`<code>${esc(code.trim())}</code>`),
+  )
+  // 2) math. 先处理 $$...$$，否则会被当成两对行内 $...$。
+  masked = masked.replace(/\$\$([\s\S]+?)\$\$/g, (_m, tex: string) => hold(mathNode(tex.trim(), true)))
+  masked = masked.replace(/\\\[([\s\S]+?)\\\]/g, (_m, tex: string) => hold(mathNode(tex.trim(), true)))
+  masked = masked.replace(/\\\(([\s\S]+?)\\\)/g, (_m, tex: string) => hold(mathNode(tex.trim(), false)))
+  // 行内 $...$：开头后不能是空白、结尾前不能是空白、结束符后不能紧跟数字，
+  // 这样 "$5 和 $10" 之类的金额不会被误判成公式。
+  masked = masked.replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, (_m, tex: string) => hold(mathNode(tex, false)))
+
+  return inlineText(masked, ctx).replace(
     /\u0000(\d+)\u0000/g,
-    (_m, idx: string) => codes[Number(idx)] ?? '',
+    (_m, idx: string) => held[Number(idx)] ?? '',
   )
 }
 
-function inlineText(s: string): string {
+// resolveUrl 把文档内的相对地址解析成可直接请求的绝对路径。
+// 已是协议地址、协议相对地址、根路径或纯锚点时原样返回。
+function resolveUrl(href: string, base: string): string {
+  if (!href) return href
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('//') || href.startsWith('#')) {
+    return href
+  }
+  if (href.startsWith('/')) return href
+  if (!base) return href
+  try {
+    // 借一个固定 origin 解析 ./ 与 ../，再取回路径部分。
+    const u = new URL(href, 'http://md.local' + base)
+    return u.pathname + u.search + u.hash
+  } catch {
+    return href
+  }
+}
+
+function inlineText(s: string, ctx: Ctx): string {
   return esc(s)
     .replace(
       /!\[([^\]]*)\]\(([^)\s]+)\)/g,
-      (_m, alt, href) => `<img alt="${alt}" src="${href}" loading="lazy" />`,
+      // 不用 loading="lazy"：预览是弹窗（position: fixed），Chromium 对这类
+      // 容器内的懒加载图片会一直推迟请求，图片永久停在 2x2 占位状态。
+      (_m, alt, href) => `<img alt="${alt}" src="${resolveUrl(href, ctx.base)}" />`,
     )
     .replace(
       /\[([^\]]*)\]\(([^)\s]+)\)/g,
-      (_m, text, href) => `<a href="${href}" target="_blank" rel="noopener">${text || href}</a>`,
+      (_m, text, href) =>
+        `<a href="${resolveUrl(href, ctx.base)}" target="_blank" rel="noopener">${text || href}</a>`,
     )
     .replace(
       /(^|[\s(])(https?:\/\/[^\s<)]+)/g,

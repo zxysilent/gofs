@@ -1295,6 +1295,37 @@ body {
   border: 1px solid var(--border);
 }
 
+/* ---------- 公式（KaTeX） ---------- */
+/* 行内公式跟随正文行高；块级公式居中，窄屏时可横向滚动而不是撑破预览。 */
+.markdown-body .md-math[data-display='0'] {
+  display: inline;
+}
+
+.markdown-body .md-math-block {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+/* 公式渲染失败时保留原始 TeX，等宽字体便于看出问题 */
+.markdown-body .md-math:not([data-rendered]) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+}
+
+/* KaTeX 默认字号比正文大一档，这里对齐正文 */
+.markdown-body .katex {
+  font-size: 1.05em;
+}
+
+.markdown-body .md-math-block .katex-display {
+  margin: 0;
+}
+
 /* 宽表格横向滚动，不撑破预览 */
 .md-table {
   overflow-x: auto;

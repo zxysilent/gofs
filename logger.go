@@ -19,13 +19,13 @@ import (
 //
 // 现在每个请求输出两行，共享同一个 trace：
 //
-//	time=... level=INF trace=x48572hm caller=api-begin ip=127.0.0.1 GET=/a.md?x=1
-//	time=... level=INF trace=x48572hm caller=api-end status=200 size=260 dur=824.084µs
+//	time=... level=INF trace=x48572hm caller=xbegin ip=127.0.0.1 GET=/a.md?x=1
+//	time=... level=INF trace=x48572hm caller=xclose status=200 size=260 dur=824.084µs
 //
 // 字段含义：
 //
 //	trace       本次请求的 id，同时通过响应头 X-Request-ID 返回，便于对照
-//	caller      api-begin / api-end，同一次请求的两行共享 trace
+//	caller      xbegin / xclose，同一次请求的两行共享 trace
 //	ip          客户端地址（仅 begin）
 //	<METHOD>    请求方法作为字段名，值是路径与查询串，例如 GET=/a.md?x=1（仅 begin）
 //	status      响应状态码（仅 end）
@@ -42,8 +42,8 @@ import (
 type accessLogger struct{}
 
 const (
-	callerBegin = "api-begin"
-	callerEnd   = "api-end"
+	callerBegin = "xbegin"
+	callerEnd   = "xclose"
 )
 
 // begin 在请求开始时输出请求信息：来源地址，以及"方法=路径"。

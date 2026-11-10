@@ -22,11 +22,13 @@ logging package.
 **Web UI** (Vue 3 + TypeScript, embedded in the binary)
 
 - Split view: lazy-loading directory tree on the left, file list/grid on the right
-- Breadcrumb navigation with hash-based routing (`#/path`) — deep links and
-  reloads keep their position, entirely client-side
+- Breadcrumb navigation with real-path routing — deep links and reloads keep
+  their position, entirely client-side
 - **Light / dark / auto theme** and **Chinese / English UI**, both persisted
   in the browser
 - In-browser preview: images, video, audio, PDF, Markdown, code, JSON, text
+- Markdown rendering with GFM tables, **math via KaTeX** (`$...$`, `$$...$$`,
+  `\(...\)`, `\[...\]`), images and links resolved relative to the document
 - In-place text editing with `Ctrl/Cmd+S` to save and a Markdown preview toggle
 - Live upload progress, zip download of any folder, recursive search
 - Drag the divider to resize the sidebar; long names truncate with an ellipsis
@@ -247,8 +249,8 @@ the result line. No custom template to maintain, and never a second copy of the
 timestamp inside a quoted message:
 
 ```
-time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-begin ip=127.0.0.1 GET=/gamma
-time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=api-end status=200 size=425 dur=116.841µs
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=xbegin ip=127.0.0.1 GET=/gamma
+time=2026-11-10T15:53:31.244 level=INF trace=cfyk5fcc caller=xclose status=200 size=425 dur=116.841µs
 ```
 
 The request record carries who asked for what, the result record carries how it
@@ -257,7 +259,7 @@ went. Each field appears exactly once:
 | Field | Line | Meaning |
 |-------|------|---------|
 | `trace` | both | request id, also returned as the `X-Request-ID` response header |
-| `caller` | both | `api-begin` or `api-end` |
+| `caller` | both | `xbegin` or `xclose` |
 | `ip` | begin | client address |
 | `<METHOD>` | begin | method as the field name, path and query as the value (`GET=/a/b.md`) |
 | `status` / `size` / `dur` | end | response status, body bytes, handling time |
@@ -347,6 +349,9 @@ full parameter table.
 | `utils.go` | URI encoding, glob, range parsing, content types |
 | `noscript.go` | text-client directory listing |
 | `web/` | Vue 3 + TypeScript SPA source (Vite build) |
+| `web/src/markdown.ts` | Markdown parser (tables, lists, math placeholders) |
+| `web/src/math.ts` | KaTeX loading and math typesetting (lazy) |
+| `web/scripts/` | post-build steps (drops unused font formats) |
 | `web/dist/` | built frontend, embedded into the binary with `go:embed` |
 | `install.sh` | release installer (one-line install) |
 | `.github/workflows/` | CI and release pipelines |
