@@ -185,6 +185,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          # 只取各平台的打包产物。download-artifact 不加 name 会下载本次 run 的
+          # 所有 artifact（包括 build job 用过的 web-dist），那样 web/dist 里的
+          # index.html 会被当成发布附件传上去。
+          pattern: gofs_*
           merge-multiple: true
 
       - name: Combine checksums
