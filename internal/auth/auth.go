@@ -428,7 +428,7 @@ func verifyTokenSignature(pub ed25519.PublicKey, sig []byte, path string, exp ui
 	message := fmt.Sprintf("%s:%d", path, exp)
 	return ed25519.Verify(pub, []byte(message), sig) ||
 		// 去掉末尾斜杠再试一次：/sub 与 /sub/ 视为同一目录。
-		(strings.HasSuffix(path, "/") && ed25519.Verify(pub, []byte(fmt.Sprintf("%s:%d", strings.TrimSuffix(path, "/"), exp)), sig))
+		(strings.HasSuffix(path, "/") && ed25519.Verify(pub, fmt.Appendf(nil, "%s:%d", strings.TrimSuffix(path, "/"), exp), sig))
 }
 
 // pathParent returns the parent of a URL path, or "" at the root.
