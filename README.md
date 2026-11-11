@@ -204,7 +204,7 @@ Options:
       --path-prefix prefix              path prefix
       --hidden paths                    hide paths from listings, e.g. tmp,*.log
   -a, --auth rule                       auth rule, e.g. user:pass@/dir1:rw,/dir2
-  -A, --allow-all[=true|false]          allow all operations
+  -A, --allow-all[=true|false]          allow upload, delete, search, archive and hash
       --allow-upload[=true|false]       allow upload files/folders
       --allow-delete[=true|false]       allow delete files/folders
       --allow-search[=true|false]       allow search files/folders
