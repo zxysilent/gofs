@@ -2,10 +2,12 @@ import type { IndexData, ListParams } from '../types'
 import { normalizeRelPath } from '../utils/paths'
 
 // The server injects the initial directory data as a base64-encoded JSON
-// string into `window.__GOFS_DATA__` (via a placeholder in index.html).
+// string into `window.__GOFS_DATA__` (via a placeholder in index.html), and the
+// build version into `window.__GOFS_VERSION__`.
 declare global {
   interface Window {
     __GOFS_DATA__?: string
+    __GOFS_VERSION__?: string
   }
 }
 
@@ -34,6 +36,11 @@ export const initialData: IndexData = readInitialData()
 // The URI prefix (from the injected data) is used to build absolute request
 // URLs so a `--path-prefix` deployment keeps working.
 export const uriPrefix: string = initialData.uri_prefix || '/'
+
+// Server version, injected at render time. Falls back to the unreplaced
+// placeholder being visible only in a broken build, so an empty string is the
+// honest value when it is missing.
+export const serverVersion: string = window.__GOFS_VERSION__ || ''
 
 // Build an absolute URL path from a relative path (relative to serve root).
 // Used for API calls, downloads, uploads — i.e. real server URLs.

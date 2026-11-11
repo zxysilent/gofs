@@ -143,6 +143,7 @@ type Server struct {
 	args               config.Args
 	assets             fs.FS // built frontend (the dist directory), nil when --assets overrides it
 	assetsPrefix       string
+	version            string // injected into index.html so the UI can show it
 	html               string
 	singleFileReqPaths []string
 	running            *atomic.Bool
@@ -170,6 +171,7 @@ func New(args config.Args, assets fs.FS, version string, running *atomic.Bool) (
 		args:               args,
 		assets:             assets,
 		assetsPrefix:       assetsPrefix,
+		version:            version,
 		html:               html,
 		singleFileReqPaths: singleFileReqPaths,
 		running:            running,
@@ -186,7 +188,9 @@ func readIndexHTML(overrideDir string, assets fs.FS) (string, error) {
 	}
 	b, err := fs.ReadFile(assets, indexName)
 	if err != nil {
-		return "", fmt.Errorf("read built frontend `%s`: %w", indexName, err)
+		// The embedded assets are produced by `npm run build`; a binary built
+		// straight from a fresh clone has none of them.
+		return "", fmt.Errorf("read built frontend `%s`: %w (run `npm run build` in web/ and rebuild)", indexName, err)
 	}
 	return string(b), nil
 }
@@ -1057,6 +1061,7 @@ func (s *Server) renderApp(w *responseWriter, data any, headOnly bool) error {
 	html := s.html
 	html = strings.ReplaceAll(html, "/__GOFS_ASSETS__/", s.args.URIPrefix+s.assetsPrefix)
 	html = strings.ReplaceAll(html, "__GOFS_DATA_VALUE__", encoded)
+	html = strings.ReplaceAll(html, "__GOFS_VERSION_VALUE__", escapeXML(s.version))
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(html)))
 	w.Header().Set("Cache-Control", "no-cache")

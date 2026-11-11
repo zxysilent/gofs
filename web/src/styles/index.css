@@ -386,6 +386,19 @@ body {
   flex-shrink: 0;
 }
 
+/* 版本号：头部右侧的弱化标记，不参与收缩 */
+.sidebar-version {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: default;
+}
+
 /* 主题 / 语言切换按钮组，靠右排列 */
 .sidebar-settings {
   display: flex;

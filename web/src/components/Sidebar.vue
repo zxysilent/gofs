@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import type { IndexData, PathItem, TreeNode } from '../types'
 import { normalizeRelPath, joinRelPath } from '../utils/paths'
-import { listDir, absUrl, readText } from '../api'
+import { listDir, absUrl, readText, serverVersion } from '../api'
 import { ICONS } from '../utils/icons'
 import { copyText, showToast } from '../utils/dialog'
 import { locale, t, toggleLocale } from '../locales'
@@ -602,6 +602,9 @@ onMounted(() => {
   <div class="sidebar-inner">
     <div class="sidebar-head">
       <div class="logo"><span v-html="ICONS.folder"></span><span>gofs</span></div>
+      <span v-if="serverVersion" class="sidebar-version" :title="`gofs ${serverVersion}`">
+        v{{ serverVersion }}
+      </span>
     </div>
     <!-- FILES 固定在滚动区之外，展开长目录树时不会跟着滚走 -->
     <div

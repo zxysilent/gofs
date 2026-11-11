@@ -21,7 +21,7 @@ import (
 
 // version is a variable rather than a constant so release builds can inject
 // the tag at link time: -ldflags "-X main.version=$(git describe --tags)".
-var version = "0.2.0"
+var version = "0.2.1"
 
 func main() {
 	res, err := config.ParseArgs(os.Args[1:])
