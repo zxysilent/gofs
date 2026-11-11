@@ -402,13 +402,43 @@ func (ac *AccessControl) VerifyToken(token, path string) (string, *AccessPaths, 
 	if !ok {
 		return "", nil, fmt.Errorf("not found user '%s'", user)
 	}
-	message := fmt.Sprintf("%s:%d", path, exp)
 	seed := sha256.Sum256([]byte(user + ":" + entry.pass))
 	pub := ed25519.NewKeyFromSeed(seed[:]).Public().(ed25519.PublicKey)
-	if !ed25519.Verify(pub, []byte(message), sig) {
-		return "", nil, errors.New("invalid signature")
+	// 令牌签在签发的路径上。这里不能只做精确匹配：给目录签发的分享链接
+	// 必须能用来取该目录下的文件（/sub 的令牌要能读 /sub/a.txt），
+	// 同时不能越到父目录或兄弟目录。
+	if !verifyTokenSignature(pub, sig, path, exp) {
+		// 目录分享：令牌可能签在某个父目录上，逐个上层重试。
+		matched := false
+		for parent := pathParent(path); parent != ""; parent = pathParent(parent) {
+			if verifyTokenSignature(pub, sig, parent, exp) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return "", nil, errors.New("invalid signature")
+		}
 	}
 	return user, &entry.paths, nil
+}
+
+// verifyTokenSignature checks sig over "<path>:<exp>".
+func verifyTokenSignature(pub ed25519.PublicKey, sig []byte, path string, exp uint64) bool {
+	message := fmt.Sprintf("%s:%d", path, exp)
+	return ed25519.Verify(pub, []byte(message), sig) ||
+		// 去掉末尾斜杠再试一次：/sub 与 /sub/ 视为同一目录。
+		(strings.HasSuffix(path, "/") && ed25519.Verify(pub, []byte(fmt.Sprintf("%s:%d", strings.TrimSuffix(path, "/"), exp)), sig))
+}
+
+// pathParent returns the parent of a URL path, or "" at the root.
+func pathParent(p string) string {
+	p = strings.TrimSuffix(p, "/")
+	idx := strings.LastIndexByte(p, '/')
+	if idx <= 0 {
+		return ""
+	}
+	return p[:idx]
 }
 
 func isReadonlyMethod(method string) bool {

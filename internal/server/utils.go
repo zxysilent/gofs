@@ -58,36 +58,36 @@ func parseRange(rng string, size uint64) [][2]uint64 {
 			return nil
 		}
 		if start == "" {
+			// 后缀形式 "-N"：取最后 N 个字节。N 为 0 是非法（RFC 7233 §2.1），
+			// N 大于文件长度则取整个文件。
 			offset, err := strconv.ParseUint(end, 10, 64)
-			if err != nil {
+			if err != nil || offset == 0 || size == 0 {
 				return nil
 			}
-			if offset <= size {
-				result = append(result, [2]uint64{size - offset, size - 1})
-			} else {
-				return nil
+			if offset > size {
+				offset = size
 			}
+			result = append(result, [2]uint64{size - offset, size - 1})
 		} else {
 			s, err := strconv.ParseUint(start, 10, 64)
-			if err != nil {
-				return nil
-			}
-			if s >= size {
+			if err != nil || s >= size {
 				return nil
 			}
 			if end == "" {
 				result = append(result, [2]uint64{s, size - 1})
-			} else {
-				e, err := strconv.ParseUint(end, 10, 64)
-				if err != nil {
-					return nil
-				}
-				if e < size && s <= e {
-					result = append(result, [2]uint64{s, e})
-				} else {
-					return nil
-				}
+				continue
 			}
+			e, err := strconv.ParseUint(end, 10, 64)
+			if err != nil || s > e {
+				return nil
+			}
+			// last-byte-pos 超出文件末尾时按 RFC 裁剪到最后一个字节，
+			// 而不是整段拒绝 —— 否则 "bytes=0-1048575" 这种常见写法在
+			// 小文件上会拿到 416 而不是文件内容。
+			if e >= size {
+				e = size - 1
+			}
+			result = append(result, [2]uint64{s, e})
 		}
 	}
 	return result

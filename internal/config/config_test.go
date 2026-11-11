@@ -308,3 +308,27 @@ func TestParseArgsCompletions(t *testing.T) {
 		t.Errorf("completions = %q", res.Completions)
 	}
 }
+
+// -A 只覆盖写操作与查询能力，不能顺带打开符号链接沙箱。
+func TestAllowAllDoesNotEnableSymlink(t *testing.T) {
+	dir := t.TempDir()
+	res, err := ParseArgs([]string{"-A", dir})
+	if err != nil {
+		t.Fatalf("ParseArgs: %v", err)
+	}
+	if !res.Args.AllowUpload || !res.Args.AllowDelete || !res.Args.AllowHash {
+		t.Errorf("-A should enable write operations: %+v", res.Args)
+	}
+	if res.Args.AllowSymlink {
+		t.Error("-A must not enable --allow-symlink")
+	}
+
+	// 显式给出时仍然生效。
+	res, err = ParseArgs([]string{"-A", "--allow-symlink", dir})
+	if err != nil {
+		t.Fatalf("ParseArgs: %v", err)
+	}
+	if !res.Args.AllowSymlink {
+		t.Error("--allow-symlink should still work explicitly")
+	}
+}

@@ -349,7 +349,7 @@ func genAgentDocZH(s *Server, base string) string {
 	d.line("```sh")
 	d.line("curl -T local/path/to/file.ext -H \"X-Update-Range: append\" " + base + "/path/to/file.ext")
 	d.line("```")
-	d.line("配合 `PATCH` 与 `X-Update-Offset` 可从指定偏移续写；小于 " +
+	d.line("用 `PATCH` 加 `X-Update-Range: bytes=<start>-` 从指定偏移续写，`append` 表示追加到末尾；小于 " +
 		strconv.Itoa(resumableUploadMinSize/1024/1024) + " MiB 的文件不保留续传状态。")
 	d.h(3, "新建目录")
 	d.line("```sh")
@@ -471,8 +471,9 @@ func genAgentDocEN(s *Server, base string) string {
 	d.line("```sh")
 	d.line("curl -T local/path/to/file.ext -H \"X-Update-Range: append\" " + base + "/path/to/file.ext")
 	d.line("```")
-	d.line("Together with `PATCH` and `X-Update-Offset` you can resume writing from an offset;")
-	d.line("files smaller than " + strconv.Itoa(resumableUploadMinSize/1024/1024) + " MiB do not keep resumable state.")
+	d.line("Resume with `PATCH` and `X-Update-Range: bytes=<start>-` to continue from an offset,\n" +
+		"or `X-Update-Range: append` to append; files smaller than " +
+		strconv.Itoa(resumableUploadMinSize/1024/1024) + " MiB do not keep resumable state.")
 	d.h(3, "Create a directory")
 	d.line("```sh")
 	d.line("curl -X MKCOL " + base + "/path/to/dir")

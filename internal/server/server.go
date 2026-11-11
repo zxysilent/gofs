@@ -872,7 +872,9 @@ func (s *Server) extractDest(r *http.Request, w *responseWriter) (string, bool) 
 
 func (s *Server) handleLsDir(path string, exist bool, q url.Values, headOnly bool, user string, accessPaths *auth.AccessPaths, w *responseWriter) error {
 	var paths []PathItem
-	if !headOnly && exist {
+	if exist {
+		// HEAD 也要真正列举：Content-Length 是按内容算出来的，跳过列举会让
+		// HEAD 报出一个与实际 GET 不符的长度。
 		var err error
 		paths, err = s.listDir(path, path, accessPaths)
 		if err != nil {
@@ -889,18 +891,21 @@ func (s *Server) handleSearchDir(path string, q url.Values, headOnly bool, user 
 	if search == "" {
 		return s.handleLsDir(path, true, q, headOnly, user, accessPaths, w)
 	}
-	if !headOnly {
-		// 默认搜索只返回文件（文件列表用）；目录树过滤传 dirs 只拿匹配的目录。
-		dirsOnly := hasQueryFlag(q, "dirs")
-		for _, sp := range s.collectDirEntries(path, accessPaths, func(p string, isDir bool) bool {
-			if isDir != dirsOnly {
-				return false
-			}
-			return strings.Contains(strings.ToLower(getFileName(p)), search)
-		}) {
-			if item, err := s.toPathItem(sp, path); err == nil && item != nil {
-				paths = append(paths, *item)
-			}
+	// HEAD 同样要搜索，否则 Content-Length 与 GET 对不上。
+	// 默认搜索只返回文件（文件列表用）；目录树过滤传 dirs 只拿匹配的目录。
+	dirsOnly := hasQueryFlag(q, "dirs")
+	for _, sp := range s.collectDirEntries(path, accessPaths, func(p string, isDir bool) bool {
+		if isDir != dirsOnly {
+			return false
+		}
+		return strings.Contains(strings.ToLower(getFileName(p)), search)
+	}) {
+		// 结果上限：深度搜索一个超大目录时不能让响应无限增长。
+		if len(paths) >= maxSubpathsCount {
+			break
+		}
+		if item, err := s.toPathItem(sp, path); err == nil && item != nil {
+			paths = append(paths, *item)
 		}
 	}
 	return s.sendIndex(path, paths, true, q, headOnly, user, accessPaths, w)
@@ -1145,7 +1150,10 @@ func (s *Server) handleSendFile(path string, header http.Header, headOnly bool, 
 	}
 	size := uint64(info.Size())
 
-	mtime := info.ModTime()
+	// HTTP 日期只精确到秒，而文件的 mtime 带纳秒。不截断的话
+	// "If-Modified-Since: <Last-Modified>" 永远得到 mtime.After(t) == true，
+	// 条件请求就全部失效（缓存无法命中、断点续传无法协商）。
+	mtime := info.ModTime().Truncate(time.Second)
 	etag := fmt.Sprintf(`"%d-%d"`, toTimestamp(mtime), size)
 	lastModified := mtime.UTC().Format(http.TimeFormat)
 

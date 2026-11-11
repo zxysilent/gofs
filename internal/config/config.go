@@ -204,12 +204,15 @@ func (o *options) resolve() (Args, error) {
 		TLSKey:         o.TLSKey,
 	}
 
-	// --allow-all 是其余允许项的语法糖
+	// --allow-all 是"允许所有操作"的语法糖，只覆盖写操作与查询能力。
+	//
+	// 刻意不包含 --allow-symlink：这是一个读侧的沙箱开关，打开后 root 内
+	// 指向外部的符号链接会被跟随。人们用 -A 通常只是想让上传/删除可用，
+	// 不该因此顺带把服务根之外的文件暴露出去，需要时显式加 --allow-symlink。
 	if args.AllowAll {
 		args.AllowUpload = true
 		args.AllowDelete = true
 		args.AllowSearch = true
-		args.AllowSymlink = true
 		args.AllowArchive = true
 		args.AllowHash = true
 	}
@@ -261,7 +264,7 @@ func newFlagSet(o *options, m *meta) *pflag.FlagSet {
 	fs.StringSliceVar(&m.hidden, "hidden", nil, "hide `paths` from listings, e.g. tmp,*.log")
 	// StringArray, not StringSlice: one auth rule already contains commas.
 	fs.StringArrayVarP(&m.auth, "auth", "a", nil, "auth `rule`, e.g. user:pass@/dir1:rw,/dir2")
-	fs.BoolVarP(&o.AllowAll, "allow-all", "A", o.AllowAll, "allow all operations")
+	fs.BoolVarP(&o.AllowAll, "allow-all", "A", o.AllowAll, "allow upload, delete, search, archive and hash")
 	fs.BoolVar(&o.AllowUpload, "allow-upload", o.AllowUpload, "allow upload files/folders")
 	fs.BoolVar(&o.AllowDelete, "allow-delete", o.AllowDelete, "allow delete files/folders")
 	fs.BoolVar(&o.AllowSearch, "allow-search", o.AllowSearch, "allow search files/folders")

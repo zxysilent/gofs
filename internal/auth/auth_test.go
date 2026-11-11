@@ -115,3 +115,30 @@ func TestAccessPaths(t *testing.T) {
 		t.Errorf("find(dir2/dir23//dir231/file) = %v, %v", v, ok)
 	}
 }
+
+// 目录的分享令牌必须能用来取该目录下的文件，同时不能越到父目录或兄弟目录。
+func TestTokenScope(t *testing.T) {
+	ac, err := NewAccessControl([]string{"admin:123@/:rw"})
+	if err != nil {
+		t.Fatalf("NewAccessControl: %v", err)
+	}
+	token, err := ac.GenerateToken("/sub", "admin")
+	if err != nil {
+		t.Fatalf("GenerateToken: %v", err)
+	}
+
+	allowed := func(path string) bool {
+		_, _, err := ac.VerifyToken(token, path)
+		return err == nil
+	}
+	for _, path := range []string{"/sub", "/sub/", "/sub/a.txt", "/sub/deep/b.txt"} {
+		if !allowed(path) {
+			t.Errorf("token for /sub should allow %q", path)
+		}
+	}
+	for _, path := range []string{"/", "/other.txt", "/subx/a.txt"} {
+		if allowed(path) {
+			t.Errorf("token for /sub must not allow %q", path)
+		}
+	}
+}
