@@ -122,6 +122,9 @@ func isText(b []byte) bool {
 // content looks like text.
 func getContentType(filePath string) string {
 	mimeType := mime.TypeByExtension(strings.ToLower(path.Ext(filePath)))
+	// mime.TypeByExtension 对 .txt/.html 等已经带 charset，直接再拼一个就会出现
+	// "text/plain; charset=utf-8; charset=utf-8"。这里先把旧参数摘掉。
+	mimeType, _, _ = strings.Cut(mimeType, ";")
 	f, err := os.Open(filePath)
 	if err != nil {
 		return fallbackMime(mimeType)

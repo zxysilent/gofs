@@ -313,7 +313,7 @@ func genAgentDocZH(s *Server, base string) string {
 		"路径相对于服务根；若部署在子路径，所有地址以 `"+base+"` 为前缀。",
 		"目录信息统一用 `?json=` 取 JSON；不带该参数返回 HTML 页面。",
 		"上传会自动创建缺失的父目录，无需先建目录。",
-		"写操作需要服务端开启写权限，或认证账号具备 `rw` 权限。",
+		"写操作需要服务端打开对应的 `--allow-upload` / `--allow-delete` 开关（或直接 `-A`）。认证规则在此基础上限定某个账号能写哪些路径 —— 只给 `rw` 并不会自动开启写权限。",
 	)
 
 	d.h(2, "读取")
@@ -435,7 +435,7 @@ func genAgentDocEN(s *Server, base string) string {
 		"Paths are relative to the service root; when deployed under a sub-path, prefix every URL with `"+base+"`.",
 		"Request directory metadata as JSON with `?json=`; without it an HTML page is returned.",
 		"Uploads create missing parent directories automatically — no need to create them first.",
-		"Write operations require the server to enable them, or an authenticated account with `rw` permission.",
+		"Write operations require the matching `--allow-upload` / `--allow-delete` switch (or `-A`). Auth rules then limit *which paths* a given account may write to; `rw` alone does not enable writes.",
 	)
 
 	d.h(2, "Reading")

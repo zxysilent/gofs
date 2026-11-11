@@ -77,6 +77,10 @@ func (p *PathItem) toDavXML(prefix string) string {
 		href += "/"
 	}
 	displayName := escapeXML(p.baseName())
+	if displayName == "" {
+		// 服务根本身没有名字，用 URL 根作为显示名。
+		displayName = "/"
+	}
 	if p.isDir() {
 		return fmt.Sprintf(`<D:response>
 <D:href>%s</D:href>
@@ -985,10 +989,17 @@ func (s *Server) handleRenderIndex(path string, q url.Values, header http.Header
 }
 
 func (s *Server) handleRenderSpA(path string, q url.Values, header http.Header, headOnly bool, w *responseWriter) error {
-	if filepath.Ext(path) == "" {
-		return s.handleSendFile(filepath.Join(s.args.ServePath, indexName), header, headOnly, w)
+	// 带扩展名的路径是静态资源，缺了就真的 404；其余交给 SPA 路由。
+	if filepath.Ext(path) != "" {
+		return s.handleNotFound(q, header, headOnly, w)
 	}
-	return s.handleNotFound(q, header, headOnly, w)
+	indexPath := filepath.Join(s.args.ServePath, indexName)
+	if info, err := os.Stat(indexPath); err != nil || !info.Mode().IsRegular() {
+		// 没有 index.html 时前面没有任何东西可服务，不能把 open 失败
+		// 当成服务器错误抛 500。
+		return s.handleNotFound(q, header, headOnly, w)
+	}
+	return s.handleSendFile(indexPath, header, headOnly, w)
 }
 
 func (s *Server) handleNotFound(q url.Values, _ http.Header, headOnly bool, w *responseWriter) error {
@@ -1456,6 +1467,11 @@ func (s *Server) toPathItem(p, basePath string) (*PathItem, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 根目录的相对路径是 "."，直接用它会让 PROPFIND 返回 <D:href>/./</D:href>
+	// 和 displayname "."，WebDAV 客户端挂载后会显示一个奇怪的名字。
+	if rel == "." {
+		rel = ""
+	}
 	return &PathItem{PathType: pathType, Name: filepath.ToSlash(rel), Mtime: mtime, Size: size}, nil
 }
 
@@ -1540,12 +1556,22 @@ func parseUploadOffset(header http.Header, size uint64) (*uint64, error) {
 	return &start, nil
 }
 
+// hasQueryFlag reports whether a flag-style query parameter is present.
+// `?zip`, `?zip=` and `?zip=1` all enable it; `?zip=0`/`?zip=false` disable it
+// so a flag can be explicitly turned off without editing the URL by hand.
 func hasQueryFlag(q url.Values, name string) bool {
 	vals, ok := q[name]
 	if !ok {
 		return false
 	}
-	return len(vals) > 0 && vals[0] == ""
+	if len(vals) == 0 {
+		return true
+	}
+	switch strings.ToLower(vals[0]) {
+	case "", "1", "true", "yes":
+		return true
+	}
+	return false
 }
 
 func isHidden(hidden []string, fileName string, isDir bool) bool {
