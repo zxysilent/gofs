@@ -151,27 +151,29 @@ WantedBy=multi-user.target
 
 ## 从源码构建
 
-需要 Go 1.26+。
+需要 Go 1.26+ 与 Node.js 20+（网页界面会被编译进二进制）。
 
 ```sh
-# 前端产物已提交在 web/dist，因此普通构建完全不需要 Node.js：
+make build        # 先 web/ 里 npm ci + npm run build，再 go build
+```
+
+`web/dist/` 不提交到仓库：它由 `npm run build` 生成，并通过
+`//go:embed all:web/dist` 内嵌进二进制。仓库里只有空的 `web/dist/.gitkeep`
+占位文件，所以全新克隆后 `go build` 仍能编译 —— 但这样构建出来的二进制没有
+网页界面，启动时会直接报错并提示先构建前端。正确的顺序是：
+
+```sh
+cd web && npm ci && npm run build && cd ..
 go build -o gofs .
 ```
 
-网页界面源码在 `web/`（Vue 3 + Vite + TypeScript）。编译产物 `web/dist/` 已提交，
-并通过 `//go:embed web/dist` 内嵌进二进制，所以 `go build` 无需 npm。
-
-只有在修改前端时才需要重新构建：
-
-```sh
-cd web
-bash install-deps.sh          # npm install + npm run build
-```
+不用 make 也可以，`make` 目标只是上面两条命令的封装：`make web`、
+`make build-go`、`make test`、`make vet`、`make clean`。
 
 发布构建会在链接期写入版本号：
 
 ```sh
-go build -trimpath -ldflags "-s -w -X main.version=0.2.0" -o gofs .
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=0.2.0" -o gofs .
 ```
 
 ## 使用
@@ -382,15 +384,16 @@ curl "http://localhost:5000/path/to/file.ext?hash"
 
 - Go：`gofmt` 检查、`go vet`、`go test -race`、构建
 - 冒烟测试：启动二进制并验证 `/gofs-healthz`、JSON 目录列表、两套语言的虚拟文档
-- 前端：`npm ci`、`vue-tsc --noEmit`、`npm run build`
-- 一致性检查：若仓库中的 `web/dist` 与重新构建的结果不一致则失败（内嵌资源必须与源码匹配）
+- 前端：`npm ci`、`vue-tsc --noEmit`、`npm run build`，产物 `web/dist` 以 artifact
+  形式传给 Go 任务（它不入库，因此二进制内嵌的永遠就是前端源码的产物）
 
 **`release.yml`** —— 推送 `v*` tag 时运行：
 
-1. 以 `CGO_ENABLED=0` 交叉编译：linux（amd64/arm64/armv6/386）、darwin（amd64/arm64）、
+1. 先构建一次前端（`npm ci` + `npm run build`），把 `web/dist` 共享给所有平台任务
+2. 以 `CGO_ENABLED=0` 交叉编译：linux（amd64/arm64/armv6/386）、darwin（amd64/arm64）、
    windows（amd64/arm64）、freebsd（amd64）
-2. 把 tag 写入二进制（`-X main.version=<tag>`），并断言 `gofs --version` 输出该版本
-3. 打包为 `gofs_<版本>_<系统>_<架构>.tar.gz`（Windows 为 `.zip`），附带 `LICENSE` 和两份 README
+3. 把 tag 写入二进制（`-X main.version=<tag>`），并断言 `gofs --version` 输出该版本
+4. 打包为 `gofs_<版本>_<系统>_<架构>.tar.gz`（Windows 为 `.zip`），附带 `LICENSE` 和两份 README
 4. 生成 `SHA256SUMS`，创建带自动变更说明的 GitHub Release
 
 发布新版本：

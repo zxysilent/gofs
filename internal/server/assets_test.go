@@ -15,7 +15,7 @@ func TestServerAssetsPlaceholderAlias(t *testing.T) {
 	args := testArgs(t, t.TempDir(), false)
 	var running atomic.Bool
 	running.Store(true)
-	srv, err := New(args, assetsDir(t), "test", &running)
+	srv, err := New(args, testAssets(t), "test", &running)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

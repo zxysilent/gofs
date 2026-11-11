@@ -14,27 +14,39 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 
 	"github.com/zxysilent/gofs/internal/auth"
 	"github.com/zxysilent/gofs/internal/config"
 )
 
-// assetsDir 指向真实的前端产物目录：assets_test 要验证占位符别名确实能命中
-// index.html，用 MapFS 会测到假的东西。
-func assetsDir(t *testing.T) fs.FS {
+// testAssets 返回一个内存里的最小前端产物。后端测试不关心真实 bundle，只关心
+// index.html 里的占位符被替换、静态资源能按前缀取到；用 MapFS 后
+// `go test ./...` 不再依赖先跑一遍 `npm run build`。
+const testIndexHTML = `<!doctype html>
+<html>
+  <body>
+    <div id="app"></div>
+    <script>window.__GOFS_DATA__ = "__GOFS_DATA_VALUE__";</script>
+    <script>window.__GOFS_VERSION__ = "__GOFS_VERSION_VALUE__";</script>
+    <script type="module" src="/__GOFS_ASSETS__/main.js"></script>
+  </body>
+</html>
+`
+
+func testAssets(t *testing.T) fs.FS {
 	t.Helper()
-	dir := filepath.Join("..", "..", "web", "dist")
-	if _, err := os.Stat(filepath.Join(dir, "index.html")); err != nil {
-		t.Skipf("frontend build missing: %v", err)
+	return fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte(testIndexHTML)},
+		"main.js":    &fstest.MapFile{Data: []byte("console.log('gofs')\n")},
 	}
-	return os.DirFS(dir)
 }
 
 func newTestServer(t *testing.T, args config.Args) *httptest.Server {
 	t.Helper()
 	var running atomic.Bool
 	running.Store(true)
-	srv, err := New(args, assetsDir(t), "test", &running)
+	srv, err := New(args, testAssets(t), "test", &running)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -120,6 +132,12 @@ func TestServerReadOps(t *testing.T) {
 	}
 	if !strings.Contains(resp, "window.__GOFS_DATA__") {
 		t.Errorf("html listing should expose the data global")
+	}
+	if strings.Contains(resp, "__GOFS_VERSION_VALUE__") {
+		t.Errorf("html listing should have injected the version (placeholder replaced)")
+	}
+	if !strings.Contains(resp, `window.__GOFS_VERSION__ = "test"`) {
+		t.Errorf("html listing should expose the version global")
 	}
 }
 
