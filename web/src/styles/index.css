@@ -604,7 +604,11 @@ body {
 .ctx-menu {
   position: fixed;
   z-index: 3000;
-  min-width: 184px;
+  /* 宽度跟随最长的一项，避免短菜单（复制 cURL / 删除）右侧拖出一大块空白；
+     max-content 让菜单本身撑开，项内的省略号只在标签过长时生效。 */
+  width: max-content;
+  min-width: 0;
+  max-width: 260px;
   padding: 5px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
@@ -630,7 +634,8 @@ body {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 7px 9px;
+  /* 右侧留白比左侧小一点：文字后不需要对称的内边距 */
+  padding: 7px 12px 7px 9px;
   border: none;
   border-radius: 5px;
   background: transparent;
