@@ -72,8 +72,8 @@ const hexWindowEnd = computed(() => hexOffset.value + hexLoaded.value)
 const hexHasPrev = computed(() => hexOffset.value > 0)
 const hexHasNext = computed(() => hexWindowEnd.value < hexTotal.value)
 
-// 范围读数给人话：十进制字节位置 + 千分位，比盯着 0x001e8470 猜位置直观；
-// 十六进制地址留在悬停提示里（dump 每行行首本来就有地址，不靠这条读）。
+// 范围读数分两行：上行是 dump 行首那种 8 位十六进制地址（对得上每一行），
+// 下行是十进制字节区间 + 千分位 + 百分比，不用在脑子里做十六进制换算。
 function hexAddr(n: number): string {
   return '0x' + n.toString(16).padStart(8, '0')
 }
@@ -81,6 +81,9 @@ function groupNum(n: number): string {
   return n.toLocaleString('en-US')
 }
 const hexEnd = computed(() => Math.max(hexOffset.value, hexWindowEnd.value - 1))
+const hexRangeHex = computed(() =>
+  `${hexAddr(hexOffset.value)} – ${hexAddr(hexEnd.value)}`,
+)
 const hexRangeBytes = computed(() =>
   t('preview.hexRangeBytes', {
     from: groupNum(hexOffset.value),
@@ -88,10 +91,9 @@ const hexRangeBytes = computed(() =>
     percent: hexPercentText.value,
   }),
 )
-// 悬停看完整信息：十六进制地址 + 按大小换算的位置/总量。
+// 悬停补一条换算后的大小，看「还剩多少」比看字节数快。
 const hexRangeTitle = computed(
   () =>
-    `${hexAddr(hexOffset.value)} – ${hexAddr(hexEnd.value)} · ` +
     `${formatSize(hexOffset.value)} / ${formatSize(hexTotal.value)} · ${hexPercentText.value}%`,
 )
 // 进度：当前位置占文件的比例。小文件里刚翻一页时占比不足 1%，显示 <1% 而不是四舍五入成 0%。
@@ -283,12 +285,12 @@ async function loadHex(start: number) {
   }
 }
 
-// 解析用户输入的偏移量。支持四种写法，覆盖「我知道确切位置」和「我只想看个大概」
+// 解析用户输入的偏移量。支持四类写法，覆盖「我知道确切位置」和「我只想看个大概」
 // 两类需求：
-//   4194304   十进制字节偏移
-//   0x400000  十六进制（和行首地址同一写法，可整段复制过来）
-//   4M / 512K 带单位（K/M/G，按 1024 进位）
-//   50%       文件百分比，大文件里先跳个大概再用翻页微调
+//   4194304      十进制字节偏移
+//   0x400000     十六进制（和行首地址同一写法，可整段复制过来）
+//   4K / 1M / 2G 二进制单位，K=KiB=1024、M=MiB、G=GiB，也接受 4KB、4KiB 写法
+//   50%          文件百分比，大文件里先跳个大概再用翻页微调
 // 返回 null 表示无法解析。
 const UNIT_SCALE: Record<string, number> = { k: 1024, m: 1024 ** 2, g: 1024 ** 3 }
 
@@ -300,7 +302,8 @@ function parseOffset(raw: string): number | null {
     const v = Math.round((hexTotal.value * Number(pct[1])) / 100)
     return Math.max(0, Math.min(v, Math.max(0, hexTotal.value - 1)))
   }
-  const unit = s.match(/^(\d+(?:\.\d+)?)([kmg])i?b?$/)
+  // o 可选：兼容 4kB / 4KiB / 4Ko 这类写法
+  const unit = s.match(/^(\d+(?:\.\d+)?)([kmg])(?:i?b|o)?$/)
   if (unit) {
     return Math.round(Number(unit[1]) * UNIT_SCALE[unit[2]])
   }
@@ -435,7 +438,10 @@ onMounted(async () => {
         <template v-else-if="hexMode">
           <div class="hex-wrap">
             <div class="hex-bar">
-              <span class="hex-range" :title="hexRangeTitle">{{ hexRangeBytes }}</span>
+              <span class="hex-range" :title="hexRangeTitle">
+                <span class="hex-range-hex">{{ hexRangeHex }}</span>
+                <span class="hex-range-size">{{ hexRangeBytes }}</span>
+              </span>
               <button
                 class="icon-btn"
                 :title="t('preview.hexPrev')"

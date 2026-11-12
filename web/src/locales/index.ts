@@ -175,9 +175,10 @@ const zh: Record<string, string> = {
   'preview.hexPrev': '上一块（4 KB）',
   'preview.hexNext': '下一块（4 KB）',
   'preview.hexGo': '跳转',
-  'preview.hexOffsetPlaceholder': '偏移量，如 4K / 50%',
-  'preview.hexOffsetTitle': '支持十进制、0x 十六进制、4K/1M/2G 这类单位，或 50% 百分比',
-  'preview.hexBadOffset': '看不懂这个偏移量，试试 4096、0x1000、4K 或 50%',
+  'preview.hexOffsetPlaceholder': '如 4K / 1M / 50%',
+  'preview.hexOffsetTitle':
+    '支持十进制字节、0x 十六进制、二进制单位 K/KiB、M/MiB、G/GiB（按 1024 进位，4K = 4096），或 50% 百分比',
+  'preview.hexBadOffset': '看不懂这个偏移量，试试 4096、0x1000、4K、1M 或 50%',
   'preview.tooLarge': '文件过大，无法在线预览，请下载查看。',
   'preview.copyHash': '复制 SHA256',
 
@@ -346,9 +347,10 @@ const en: Record<string, string> = {
   'preview.hexPrev': 'Previous block (4 KB)',
   'preview.hexNext': 'Next block (4 KB)',
   'preview.hexGo': 'Go',
-  'preview.hexOffsetPlaceholder': 'Offset, e.g. 4K / 50%',
-  'preview.hexOffsetTitle': 'Accepts decimal, 0x hex, 4K/1M/2G units, or a percentage like 50%',
-  'preview.hexBadOffset': 'Unrecognised offset — try 4096, 0x1000, 4K or 50%',
+  'preview.hexOffsetPlaceholder': 'e.g. 4K / 1M / 50%',
+  'preview.hexOffsetTitle':
+    'Accepts decimal bytes, 0x hex, binary units K/KiB, M/MiB, G/GiB (base 1024, 4K = 4096), or a percentage like 50%',
+  'preview.hexBadOffset': 'Unrecognised offset — try 4096, 0x1000, 4K, 1M or 50%',
   'preview.tooLarge': 'File is too large to preview. Please download it.',
   'preview.copyHash': 'Copy SHA256',
 
