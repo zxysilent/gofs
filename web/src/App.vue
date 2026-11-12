@@ -294,6 +294,17 @@ function onDownloadItemArchive(item: PathItem) {
   downloadZip(joinRelPath(relPath.value, item.name), item.name)
 }
 
+// 文件行内的"下载"：直接指向文件地址，由浏览器自己另存。
+function onDownloadItem(item: PathItem) {
+  if (isDir(item)) return onDownloadItemArchive(item)
+  const a = document.createElement('a')
+  a.href = absUrl(joinRelPath(relPath.value, item.name))
+  a.download = item.name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+}
+
 // ---- 路由 ----
 // 目录用真实路径（History API），因此前进/后退走 popstate；
 // 帮助页仍在使用 hash，所以 hashchange 也要监听。
@@ -417,6 +428,7 @@ onBeforeUnmount(() => {
           :allow-delete="allowDelete"
           :allow-archive="allowArchive"
           @select="onSelect"
+          @download="onDownloadItem"
           @delete="onDeleteItem"
           @rename="onRenameItem"
           @copy="onCopyItem"

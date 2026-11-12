@@ -123,6 +123,8 @@ const zh: Record<string, string> = {
   'menu.newFolder': '新建子目录',
   'menu.copyRelPath': '复制路径',
   'menu.more': '更多操作',
+  'menu.copyCurl': '复制 cURL',
+  'menu.openNew': '新窗口',
 
   // sidebar
   'sidebar.fileList': '文件列表',
@@ -282,6 +284,8 @@ const en: Record<string, string> = {
   'menu.newFolder': 'New subfolder',
   'menu.copyRelPath': 'Copy path',
   'menu.more': 'More actions',
+  'menu.copyCurl': 'Copy cURL',
+  'menu.openNew': 'New tab',
 
   // sidebar
   'sidebar.fileList': 'Files',
