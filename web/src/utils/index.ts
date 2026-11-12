@@ -17,11 +17,13 @@ export type FileKind =
   | 'archive'
   | 'binary'
 
-const IMAGE_EXT = new Set([
-  'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif', 'tiff',
-])
-const VIDEO_EXT = new Set(['mp4', 'webm', 'ogv', 'mov', 'm4v', 'avi', 'mkv', 'flv'])
-const AUDIO_EXT = new Set(['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus', 'oga'])
+// 浏览器真能渲染的图片格式。tiff 之类不要放进图片：浏览器不支持时
+// 只剩一个破图，还不如走 hex 视图看文件头。
+const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif'])
+// 只保留浏览器能直接播放的容器；avi/mkv/flv 等现代浏览器基本不解码，
+// 放进视频预览只会得到一个永远转圈的黑块。
+const VIDEO_EXT = new Set(['mp4', 'webm', 'ogv', 'm4v', 'mov'])
+const AUDIO_EXT = new Set(['mp3', 'wav', 'ogg', 'oga', 'flac', 'm4a', 'aac', 'opus'])
 const ARCHIVE_EXT = new Set(['zip', 'tar', 'gz', 'tgz', 'bz2', 'xz', '7z', 'rar'])
 const MARKDOWN_EXT = new Set(['md', 'markdown', 'mdown', 'mkd'])
 // 网页单独成一类：默认渲染成页面，同时保留“看源码”的切换。
@@ -37,6 +39,25 @@ const CODE_EXT = new Set([
 ])
 const TEXT_EXT = new Set(['txt', 'text', 'csv', 'tsv', 'diff', 'patch', 'env', 'gitignore', 'editorconfig', 'license', 'readme'])
 
+// 没有后缀、但公认是文本的文件名（比较时用小写 basename）。
+// 除此之外的无后缀文件一律按二进制处理：可执行文件、共享库、数据文件都属此类，
+// 早先一律当成文本，点开一个几 MB 的 ELF 会直接把 8 MB 文本塞进 <pre>，页面就卡死了。
+const TEXT_NAMES = new Set([
+  'makefile', 'gnumakefile', 'dockerfile', 'containerfile', 'vagrantfile',
+  'gemfile', 'rakefile', 'procfile', 'brewfile', 'justfile', 'cmakelists',
+  'license', 'licence', 'copying', 'notice', 'authors', 'contributors',
+  'readme', 'changelog', 'changes', 'install', 'todo', 'version', 'revision',
+  'hosts', 'passwd', 'group', 'fstab', 'sudoers', 'codeowners',
+  '.gitignore', '.gitattributes', '.gitmodules', '.npmrc', '.nvmrc', '.env',
+  '.editorconfig', '.dockerignore', '.babelrc', '.eslintrc', '.prettierrc',
+])
+
+// 是否应该按文本打开（预览/编辑）：文本、代码、Markdown、HTML、JSON 都算。
+export function isTextName(name: string): boolean {
+  const k = fileKind(name)
+  return k === 'text' || k === 'code' || k === 'markdown' || k === 'html' || k === 'json'
+}
+
 export function fileKind(name: string): FileKind {
   const ext = extName(name)
   if (IMAGE_EXT.has(ext)) return 'image'
@@ -49,8 +70,10 @@ export function fileKind(name: string): FileKind {
   if (ARCHIVE_EXT.has(ext)) return 'archive'
   if (CODE_EXT.has(ext)) return 'code'
   if (TEXT_EXT.has(ext)) return 'text'
-  // extensionless files are often text
-  if (ext === '') return 'text'
+  if (ext === '') {
+    // 无后缀：只有白名单里的名字当文本，其余按二进制
+    return TEXT_NAMES.has(lastSegment(name).toLowerCase()) ? 'text' : 'binary'
+  }
   return 'binary'
 }
 
@@ -58,6 +81,12 @@ export function extName(name: string): string {
   const idx = name.lastIndexOf('.')
   if (idx <= 0 || idx === name.length - 1) return ''
   return name.slice(idx + 1).toLowerCase()
+}
+
+// 取路径里最后一段（文件名）
+function lastSegment(name: string): string {
+  const idx = name.lastIndexOf('/')
+  return idx >= 0 ? name.slice(idx + 1) : name
 }
 
 const SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']

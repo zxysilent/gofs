@@ -88,6 +88,7 @@ const zh: Record<string, string> = {
   'kind.code': '代码',
   'kind.archive': '压缩包',
   'kind.file': '文件',
+  'kind.binary': '二进制',
 
   // file list
   'list.name': '名称',
@@ -264,6 +265,7 @@ const en: Record<string, string> = {
   'kind.code': 'Code',
   'kind.archive': 'Archive',
   'kind.file': 'File',
+  'kind.binary': 'Binary',
 
   // file list
   'list.name': 'Name',

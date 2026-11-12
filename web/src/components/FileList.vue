@@ -85,6 +85,7 @@ function kindLabel(item: PathItem): string {
     case 'text': return t('kind.text')
     case 'code': return t('kind.code')
     case 'archive': return t('kind.archive')
+    case 'binary': return t('kind.binary')
     default: return t('kind.file')
   }
 }
