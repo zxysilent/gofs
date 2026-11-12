@@ -10,6 +10,11 @@ import { join } from 'node:path'
 
 const dir = new URL('../dist/assets/', import.meta.url).pathname
 
+// vite 构建会清空 outDir，而 embed.go 的 //go:embed all:web/dist 必须至少匹配
+// 一个文件 —— 仓库里只提交了 web/dist/.gitkeep 这个空占位。每次构建后补回去，
+// 否则 dist 目录变成只被 git 忽略的产物，克隆后 go build 会直接失败。
+writeFileSync(new URL('../dist/.gitkeep', import.meta.url).pathname, '')
+
 const isLegacyFont = (f) => /\.(woff|ttf)$/i.test(f)
 
 const files = readdirSync(dir)

@@ -10,6 +10,7 @@ export type FileKind =
   | 'audio'
   | 'pdf'
   | 'markdown'
+  | 'html'
   | 'json'
   | 'text'
   | 'code'
@@ -23,13 +24,15 @@ const VIDEO_EXT = new Set(['mp4', 'webm', 'ogv', 'mov', 'm4v', 'avi', 'mkv', 'fl
 const AUDIO_EXT = new Set(['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac', 'opus', 'oga'])
 const ARCHIVE_EXT = new Set(['zip', 'tar', 'gz', 'tgz', 'bz2', 'xz', '7z', 'rar'])
 const MARKDOWN_EXT = new Set(['md', 'markdown', 'mdown', 'mkd'])
+// 网页单独成一类：默认渲染成页面，同时保留“看源码”的切换。
+const HTML_EXT = new Set(['html', 'htm'])
 const CODE_EXT = new Set([
   'go', 'py', 'js', 'mjs', 'cjs', 'ts', 'jsx', 'tsx', 'vue', 'svelte',
   'java', 'c', 'h', 'cpp', 'cc', 'hpp', 'cs', 'rb', 'php', 'rs', 'swift',
   'kt', 'kts', 'scala', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
   'sql', 'r', 'm', 'pl', 'lua', 'dart', 'ex', 'exs', 'erl', 'hs', 'clj',
   'groovy', 'gradle', 'proto', 'graphql', 'toml', 'yaml', 'yml', 'xml',
-  'html', 'css', 'scss', 'less', 'sass', 'ini', 'cfg', 'conf', 'properties',
+  'css', 'scss', 'less', 'sass', 'ini', 'cfg', 'conf', 'properties',
   'dockerfile', 'makefile', 'cmake', 'lock', 'log',
 ])
 const TEXT_EXT = new Set(['txt', 'text', 'csv', 'tsv', 'diff', 'patch', 'env', 'gitignore', 'editorconfig', 'license', 'readme'])
@@ -41,6 +44,7 @@ export function fileKind(name: string): FileKind {
   if (AUDIO_EXT.has(ext)) return 'audio'
   if (ext === 'pdf') return 'pdf'
   if (MARKDOWN_EXT.has(ext)) return 'markdown'
+  if (HTML_EXT.has(ext)) return 'html'
   if (ext === 'json') return 'json'
   if (ARCHIVE_EXT.has(ext)) return 'archive'
   if (CODE_EXT.has(ext)) return 'code'

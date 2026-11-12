@@ -998,6 +998,7 @@ body {
 .file-icon.kind-code,
 .file-icon.kind-json,
 .file-icon.kind-markdown,
+.file-icon.kind-html,
 .file-icon.kind-text {
   color: var(--accent);
 }
@@ -1075,6 +1076,7 @@ body {
 .file-card-icon.kind-code,
 .file-card-icon.kind-json,
 .file-card-icon.kind-markdown,
+.file-card-icon.kind-html,
 .file-card-icon.kind-text {
   color: var(--accent);
 }
@@ -1200,9 +1202,18 @@ body {
 }
 
 .preview-iframe {
+  /* v-html 的外层 div 是 auto 高度，height:100% 会退化成默认 150px；
+     .preview-body 已经是 position:relative，这里直接铺满它。 */
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: none;
+}
+
+/* 被预览的 HTML 一般按浅色设计，给个白底，避免暗色主题下先闪一下深灰 */
+.preview-iframe.html-frame {
+  background: #fff;
 }
 
 .audio-box {

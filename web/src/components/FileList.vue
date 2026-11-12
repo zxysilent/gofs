@@ -32,6 +32,7 @@ function kindLabel(item: PathItem): string {
     case 'audio': return t('kind.audio')
     case 'pdf': return t('kind.pdf')
     case 'markdown': return t('kind.markdown')
+    case 'html': return t('kind.html')
     case 'json': return t('kind.json')
     case 'text': return t('kind.text')
     case 'code': return t('kind.code')

@@ -27,7 +27,7 @@ const docBaseUrl = (() => {
 
 // 可编辑的文本类文件
 const editable = computed(() =>
-  kind === 'text' || kind === 'code' || kind === 'json' || kind === 'markdown',
+  kind === 'text' || kind === 'code' || kind === 'json' || kind === 'markdown' || kind === 'html',
 )
 
 const bodyHtml = ref<string>('')
@@ -41,6 +41,11 @@ const editContent = ref('')
 const originalContent = ref('')
 const saving = ref(false)
 const mdPreview = ref(false) // markdown 编辑时的预览开关
+// HTML 默认渲染成网页，可切回源码（看 meta / 样式等）。
+const htmlPreview = ref(true)
+// HTML 的源码是否确实读进来了。读不到时（比如文件超大）禁止进入编辑，
+// 否则编辑器是空的，一保存就把原文件截成 0 字节。
+const hasSource = ref(false)
 
 const dirty = computed(() => editing.value && editContent.value !== originalContent.value)
 
@@ -161,10 +166,26 @@ function escHtml(s: string): string {
   return s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string))
 }
 
-// 把文本内容渲染为只读预览（code/json/text 用 pre，markdown 渲染）。
+// 直接把文件当网页跑。sandbox 刻意不给 allow-same-origin：被预览的 HTML 运行在
+// 独立的不透明源里，脚本能跑（图表/自动排版可用），但拿不到 gofs 页面的
+// DOM、cookie 与同源接口，避免有人上传一份 HTML 就借浏览者的身份改文件。
+// 代价是依赖 fetch/localStorage 的页面需要走“新窗口打开”。
+function htmlFrame(): string {
+  return `<iframe src="${url}" class="preview-iframe html-frame" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads"></iframe>`
+}
+
+function toggleHtmlPreview() {
+  htmlPreview.value = !htmlPreview.value
+  // 源码视图需要内容；首次切换时 originalContent 已在挂载阶段读好。
+  renderTextView(originalContent.value)
+}
+
+// 把文本内容渲染为只读预览（code/json/text 用 pre，markdown/html 按自身方式渲染）。
 function renderTextView(text: string) {
   if (kind === 'markdown') {
     bodyHtml.value = `<div class="markdown-body">${renderMarkdown(text, { baseUrl: docBaseUrl })}</div>`
+  } else if (kind === 'html' && htmlPreview.value) {
+    bodyHtml.value = htmlFrame()
   } else {
     bodyHtml.value = `<pre class="code-block">${escHtml(text)}</pre>`
   }
@@ -180,6 +201,17 @@ onMounted(async () => {
       bodyHtml.value = `<div class="preview-center"><div class="audio-box">${ICONS.file}<audio src="${url}" controls></audio></div></div>`
     } else if (kind === 'pdf') {
       bodyHtml.value = `<iframe src="${url}" class="preview-iframe"></iframe>`
+    } else if (kind === 'html') {
+      // 先出页面：渲染不需要先读完源码，超大的 HTML 也能正常预览。
+      bodyHtml.value = htmlFrame()
+      try {
+        const text = await readText(props.path)
+        originalContent.value = text
+        editContent.value = text
+        hasSource.value = true
+      } catch {
+        // 只是拿不到“源码/编辑”能力，网页预览照旧。
+      }
     } else if (editable.value) {
       const text = await readText(props.path)
       originalContent.value = text
@@ -211,7 +243,15 @@ onMounted(async () => {
         <span v-if="dirty" class="preview-dirty">{{ t('preview.unsaved') }}</span>
         <div class="preview-actions">
           <template v-if="!editing">
-            <button v-if="editable && allowUpload" class="btn" @click="startEdit">
+            <button
+              v-if="kind === 'html'"
+              class="btn"
+              :title="htmlPreview ? t('preview.sourceTitle') : t('preview.renderedTitle')"
+              @click="toggleHtmlPreview"
+            >
+              {{ htmlPreview ? t('preview.source') : t('preview.rendered') }}
+            </button>
+            <button v-if="editable && allowUpload && (kind !== 'html' || hasSource)" class="btn" @click="startEdit">
               <span v-html="ICONS.rename"></span>{{ t('preview.edit') }}
             </button>
             <button class="btn" @click="download"><span v-html="ICONS.download"></span>{{ t('preview.download') }}</button>
