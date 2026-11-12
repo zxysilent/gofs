@@ -847,23 +847,51 @@ body {
   background: var(--bg-hover);
 }
 
-/* 开关式按钮（如预览里的“换行/滚动”）：文案在两种状态间切换，
-   用固定宽度把“换行”和“滚动”（以及 Wrap / Scroll）的差异吃掉，
-   点击时按钮尺寸与相邻按钮的位置都不动。 */
+/* 开关式按钮（预览底栏的“换行 / 滚动”）。底栏是信息区，开关不该抢注意力：
+   无底色、无边框、弱化文字，只在悬停时浮出轮廓；状态由文案和图标本身体现，
+   不用整块高亮。
+   宽度按内容走（不加 min-width）：否则悬停底色会比文字宽出一截，像块空面板。
+   布局稳定性靠 margin-left:auto 保证 —— 自动左边距吃掉宽度差异，按钮右边缘
+   钉在底栏右侧，切换时只有它自己的左边缘微动，相邻元素不动。 */
 .btn.wrap-toggle {
-  min-width: 84px;
+  flex: 0 0 auto;
   justify-content: center;
-  /* 底栏是 12px 小字，按钮跟着缩一号，不抢内容区的注意力 */
   margin-left: auto;
-  padding: 3px 10px;
+  padding: 3px 9px;
   font-size: 12px;
   gap: 4px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-secondary);
 }
 
 /* 底栏按钮里的图标也小一号 */
 .btn.wrap-toggle svg {
   width: 13px;
   height: 13px;
+}
+
+/* 悬停只提亮文字，不加底色也不要边框 —— 底栏里这点提示足够了，
+   加任何色块都会在信息行里显得很重。 */
+.btn.wrap-toggle:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+/* 开启态与关闭态外观一致：状态由文案（换行 / 滚动）和图标表达，
+   点击后按钮本身不变样，避免在信息行里出现一块常驻的强调色。 */
+.btn.wrap-toggle.active {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+/* 开启态下仍然保留悬停反馈（上面的 .active 规则会盖掉普通 :hover） */
+.btn.wrap-toggle.active:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
 }
 
 .btn.active {
@@ -1196,14 +1224,35 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 撑满 preview-body：媒体元素的 max-height:100% 需要一个确定高度的父级，
+     否则超大分辨率的图片会按原始尺寸铺开，直接把弹窗撑出界。 */
   height: 100%;
-  min-height: 200px;
+  min-height: 0;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.preview-center img {
+/* 图片/视频按容器等比缩放，永远留边不越界；音频只约束宽度 */
+.preview-center img,
+.preview-center video {
   max-width: 100%;
   max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
+  display: block;
+}
+
+.preview-center audio {
+  max-width: 100%;
+}
+
+/* 媒体预览的外层包装：同样撑满，保证上面的百分比有参照 */
+.preview-fill {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .preview-iframe {
@@ -1375,6 +1424,20 @@ body {
 .no-wrap .code-block {
   white-space: pre;
   overflow-wrap: normal;
+}
+
+/* 只读文本/代码预览：代码块铺满内容区，而不是缩在顶部只占内容高度。
+   外框由 preview-body 负责，这里去掉自己的边框与圆角，避免在边缘画两条线。 */
+.preview-code-wrap {
+  height: 100%;
+  min-height: 0;
+}
+
+.preview-code-wrap .code-block {
+  height: 100%;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
 }
 
 .markdown-body {

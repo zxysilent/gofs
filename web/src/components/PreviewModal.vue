@@ -68,13 +68,22 @@ const wrapLines = ref(true)
 
 const dirty = computed(() => editing.value && editContent.value !== originalContent.value)
 
+// 只读预览里是否渲染成一块代码/文本块（用于让它铺满内容区）。
+const textBody = computed(
+  () => kind === 'text' || kind === 'code' || kind === 'json' || (kind === 'html' && !htmlPreview.value),
+)
+
+// 图片/视频/音频需要撑满内容区：否则外层 div 只有内容高度，媒体元素的
+// max-height:100% 失去参照，超大分辨率的图会把弹窗撑出界。
+const mediaBody = computed(() => kind === 'image' || kind === 'video' || kind === 'audio')
+
 // 只有「按文本逐行展示」的视图才谈得上换行：富文本 markdown、图片、PDF 不需要。
 // 内容没读进来（超大文件、读失败）时也没有可换行的东西，开关一并隐藏。
 const canWrap = computed(() => {
   if (bodyError.value) return false
   if (editing.value) return !(kind === 'markdown' && mdPreview.value)
   if (kind === 'html') return !htmlPreview.value && hasSource.value
-  return (kind === 'text' || kind === 'code' || kind === 'json') && hasSource.value
+  return textBody.value && hasSource.value
 })
 
 const hexText = computed(() => hexLines.value.join('\n'))
@@ -479,7 +488,16 @@ onMounted(async () => {
             <pre v-else class="hex-dump">{{ hexText }}</pre>
           </div>
         </template>
-        <div v-else ref="bodyRef" :class="{ 'no-wrap': !wrapLines }" v-html="bodyHtml"></div>
+        <div
+          v-else
+          ref="bodyRef"
+          :class="{
+            'no-wrap': !wrapLines,
+            'preview-code-wrap': textBody,
+            'preview-fill': mediaBody,
+          }"
+          v-html="bodyHtml"
+        ></div>
         <!-- hex 模式下下载按钮已在标题栏，这里再放一个会把 dump 挤出可视区 -->
         <div
           v-if="!loading && !editing && (bodyError || (!inlinePreview && !hexMode))"
