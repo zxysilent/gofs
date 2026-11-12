@@ -73,7 +73,7 @@ const hexHasPrev = computed(() => hexOffset.value > 0)
 const hexHasNext = computed(() => hexWindowEnd.value < hexTotal.value)
 
 // 范围读数分两行：上行是 dump 行首那种 8 位十六进制地址（对得上每一行），
-// 下行是十进制字节区间 + 千分位 + 百分比，不用在脑子里做十六进制换算。
+// 下行是十进制字节区间 + 千分位，不用在脑子里做十六进制换算。
 function hexAddr(n: number): string {
   return '0x' + n.toString(16).padStart(8, '0')
 }
@@ -88,22 +88,12 @@ const hexRangeBytes = computed(() =>
   t('preview.hexRangeBytes', {
     from: groupNum(hexOffset.value),
     to: groupNum(hexEnd.value),
-    percent: hexPercentText.value,
   }),
 )
 // 悬停补一条换算后的大小，看「还剩多少」比看字节数快。
 const hexRangeTitle = computed(
-  () =>
-    `${formatSize(hexOffset.value)} / ${formatSize(hexTotal.value)} · ${hexPercentText.value}%`,
+  () => `${formatSize(hexOffset.value)} / ${formatSize(hexTotal.value)}`,
 )
-// 进度：当前位置占文件的比例。小文件里刚翻一页时占比不足 1%，显示 <1% 而不是四舍五入成 0%。
-const hexPercent = computed(() =>
-  hexTotal.value ? Math.min(100, (hexOffset.value / hexTotal.value) * 100) : 0,
-)
-const hexPercentText = computed(() => {
-  const p = hexPercent.value
-  return p > 0 && p < 1 ? '<1' : String(Math.round(p))
-})
 
 const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: docBaseUrl }))
 
@@ -285,23 +275,17 @@ async function loadHex(start: number) {
   }
 }
 
-// 解析用户输入的偏移量。支持四类写法，覆盖「我知道确切位置」和「我只想看个大概」
+// 解析用户输入的偏移量。支持三类写法，覆盖「我知道确切位置」和「我只想看个大概」
 // 两类需求：
 //   4194304      十进制字节偏移
 //   0x400000     十六进制（和行首地址同一写法，可整段复制过来）
 //   4K / 1M / 2G 二进制单位，K=KiB=1024、M=MiB、G=GiB，也接受 4KB、4KiB 写法
-//   50%          文件百分比，大文件里先跳个大概再用翻页微调
 // 返回 null 表示无法解析。
 const UNIT_SCALE: Record<string, number> = { k: 1024, m: 1024 ** 2, g: 1024 ** 3 }
 
 function parseOffset(raw: string): number | null {
   const s = raw.trim().toLowerCase().replace(/[\s_,]/g, '')
   if (!s) return null
-  const pct = s.match(/^(\d+(?:\.\d+)?)%$/)
-  if (pct) {
-    const v = Math.round((hexTotal.value * Number(pct[1])) / 100)
-    return Math.max(0, Math.min(v, Math.max(0, hexTotal.value - 1)))
-  }
   // o 可选：兼容 4kB / 4KiB / 4Ko 这类写法
   const unit = s.match(/^(\d+(?:\.\d+)?)([kmg])(?:i?b|o)?$/)
   if (unit) {
