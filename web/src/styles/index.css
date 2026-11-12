@@ -1275,39 +1275,28 @@ body {
   flex-shrink: 0;
 }
 
-/* 范围读数：上行十六进制地址（对齐 dump 行首），下行十进制字节区间 */
+/* 范围读数：一行说完「十六进制区间 · 十进制字节区间」 */
 .hex-range {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
   flex: 1 1 auto;
   min-width: 0;
+  color: var(--text-secondary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   cursor: help;
 }
 
-.hex-range-hex {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* 输入框 + 内嵌清除按钮 */
+.hex-field {
+  position: relative;
+  flex-shrink: 0;
 }
 
-.hex-range-size {
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 偏移量输入框：窄一点，只放得下 0x 开头的数字 */
 .hex-offset {
   width: 150px;
-  flex-shrink: 0;
-  padding: 5px 8px;
+  padding: 5px 26px 5px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
@@ -1319,6 +1308,30 @@ body {
 .hex-offset:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* 清除按钮贴在输入框右侧，只改内容不改尺寸 */
+.hex-clear {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.hex-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
 }
 
 .hex-dump {

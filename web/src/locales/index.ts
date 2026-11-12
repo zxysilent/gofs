@@ -171,7 +171,6 @@ const zh: Record<string, string> = {
   'preview.notSupported': '此文件类型暂不支持在线预览',
   'preview.hexNoRange': '服务端不支持分段读取，请下载后查看',
   'preview.hexEmpty': '空文件（0 字节）',
-  'preview.hexRangeBytes': '{from} – {to} 字节',
   'preview.hexPrev': '上一块（4 KB）',
   'preview.hexNext': '下一块（4 KB）',
   'preview.hexGo': '跳转',
@@ -179,8 +178,11 @@ const zh: Record<string, string> = {
   'preview.hexOffsetTitle':
     '支持十进制字节、0x 十六进制、二进制单位 K/KiB、M/MiB、G/GiB（按 1024 进位，4K = 4096）',
   'preview.hexBadOffset': '看不懂这个偏移量，试试 4096、0x1000、4K 或 1M',
+  'preview.hexClear': '清空偏移量',
   'preview.tooLarge': '文件过大，无法在线预览，请下载查看。',
   'preview.copyHash': '复制 SHA256',
+  'preview.mtime': '修改',
+  'preview.ctime': '创建',
 
   // help page
   'help.back': '返回',
@@ -343,7 +345,6 @@ const en: Record<string, string> = {
   'preview.notSupported': 'Preview is not available for this file type',
   'preview.hexNoRange': 'The server does not support range requests; download the file instead',
   'preview.hexEmpty': 'Empty file (0 bytes)',
-  'preview.hexRangeBytes': '{from} – {to} B',
   'preview.hexPrev': 'Previous block (4 KB)',
   'preview.hexNext': 'Next block (4 KB)',
   'preview.hexGo': 'Go',
@@ -351,8 +352,11 @@ const en: Record<string, string> = {
   'preview.hexOffsetTitle':
     'Accepts decimal bytes, 0x hex, binary units K/KiB, M/MiB, G/GiB (base 1024, 4K = 4096)',
   'preview.hexBadOffset': 'Unrecognised offset — try 4096, 0x1000, 4K or 1M',
+  'preview.hexClear': 'Clear offset',
   'preview.tooLarge': 'File is too large to preview. Please download it.',
   'preview.copyHash': 'Copy SHA256',
+  'preview.mtime': 'Modified',
+  'preview.ctime': 'Created',
 
   // help page
   'help.back': 'Back',

@@ -6,6 +6,8 @@ export interface PathItem {
   path_type: PathType
   name: string
   mtime: number
+  /** 创建时间（Unix 毫秒）；平台或文件系统拿不到时为 0，界面就不显示这栏。 */
+  ctime: number
   size: number
 }
 

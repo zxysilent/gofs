@@ -71,9 +71,7 @@ const hexTotal = computed(() => Math.max(0, props.item.size || 0))
 const hexWindowEnd = computed(() => hexOffset.value + hexLoaded.value)
 const hexHasPrev = computed(() => hexOffset.value > 0)
 const hexHasNext = computed(() => hexWindowEnd.value < hexTotal.value)
-
-// 范围读数分两行：上行是 dump 行首那种 8 位十六进制地址（对得上每一行），
-// 下行是十进制字节区间 + 千分位，不用在脑子里做十六进制换算。
+// 读数一行说完：每个地址后面紧跟括号里的十进制偏移，两种口径一对就对得上。
 function hexAddr(n: number): string {
   return '0x' + n.toString(16).padStart(8, '0')
 }
@@ -81,14 +79,10 @@ function groupNum(n: number): string {
   return n.toLocaleString('en-US')
 }
 const hexEnd = computed(() => Math.max(hexOffset.value, hexWindowEnd.value - 1))
-const hexRangeHex = computed(() =>
-  `${hexAddr(hexOffset.value)} – ${hexAddr(hexEnd.value)}`,
-)
-const hexRangeBytes = computed(() =>
-  t('preview.hexRangeBytes', {
-    from: groupNum(hexOffset.value),
-    to: groupNum(hexEnd.value),
-  }),
+const hexRangeLine = computed(
+  () =>
+    `${hexAddr(hexOffset.value)} (${groupNum(hexOffset.value)}) – ` +
+    `${hexAddr(hexEnd.value)} (${groupNum(hexEnd.value)})`,
 )
 // 悬停补一条换算后的大小，看「还剩多少」比看字节数快。
 const hexRangeTitle = computed(
@@ -422,10 +416,7 @@ onMounted(async () => {
         <template v-else-if="hexMode">
           <div class="hex-wrap">
             <div class="hex-bar">
-              <span class="hex-range" :title="hexRangeTitle">
-                <span class="hex-range-hex">{{ hexRangeHex }}</span>
-                <span class="hex-range-size">{{ hexRangeBytes }}</span>
-              </span>
+              <span class="hex-range" :title="hexRangeTitle">{{ hexRangeLine }}</span>
               <button
                 class="icon-btn"
                 :title="t('preview.hexPrev')"
@@ -440,16 +431,28 @@ onMounted(async () => {
                 @click="loadHex(hexOffset + HEX_WINDOW)"
                 v-html="ICONS.chevronRight16"
               ></button>
-              <input
-                v-model="hexInput"
-                class="hex-offset"
-                type="text"
-                spellcheck="false"
-                :placeholder="t('preview.hexOffsetPlaceholder')"
-                :title="t('preview.hexOffsetTitle')"
-                @focus="($event.target as HTMLInputElement).select()"
-                @keyup.enter="jumpHex"
-              />
+              <span class="hex-field">
+                <input
+                  v-model="hexInput"
+                  class="hex-offset"
+                  type="text"
+                  spellcheck="false"
+                  :placeholder="t('preview.hexOffsetPlaceholder')"
+                  :title="t('preview.hexOffsetTitle')"
+                  @focus="($event.target as HTMLInputElement).select()"
+                  @keyup.enter="jumpHex"
+                />
+                <!-- 有内容才显示清除按钮，空的时候不用占一个“点了没事干”的图标 -->
+                <button
+                  v-if="hexInput"
+                  class="hex-clear"
+                  type="button"
+                  :title="t('preview.hexClear')"
+                  :aria-label="t('preview.hexClear')"
+                  @click="hexInput = ''"
+                  v-html="ICONS.x"
+                ></button>
+              </span>
               <button class="btn" :disabled="hexLoading || !hexInput.trim()" @click="jumpHex">
                 <span v-html="ICONS.arrowRight"></span>{{ t('preview.hexGo') }}
               </button>
@@ -471,9 +474,9 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <!-- 底栏常驻：大小 / 修改时间 / SHA256。标题栏只留文件名，因此永远是单行。 -->
+      <!-- 底栏常驻：大小 / 修改时间 / 创建时间 / SHA256。标题栏只留文件名，因此永远是单行。 -->
       <div class="preview-foot">
-        <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
+        <span class="preview-meta">{{ formatSize(item.size) }} · {{ t('preview.mtime') }} {{ formatTime(item.mtime) }}<template v-if="item.ctime"> · {{ t('preview.ctime') }} {{ formatTime(item.ctime) }}</template></span>
         <span v-if="hash" class="preview-meta preview-hash" :title="hash">SHA256: {{ hash }}</span>
         <button
           v-if="hash"
