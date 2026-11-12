@@ -71,8 +71,10 @@ func renderNoScriptPathItem(p *PathItem) string {
 	return fmt.Sprintf(`<tr><td><a href="%s">%s</a></td><td>%s</td><td>%s</td></tr>`, href, name, mtime, size)
 }
 
+// 与网页界面保持同一种时间格式（YYYY-MM-DD HH:mm:ss），文本浏览器里也便于
+// 直接复制比对；原来的 ISO 8601 带毫秒和 T/Z，和界面列对不上。
 func formatNoScriptMtime(mtime uint64) string {
-	return time.UnixMilli(int64(mtime)).UTC().Format("2006-01-02T15:04:05.000Z")
+	return time.UnixMilli(int64(mtime)).Local().Format("2006-01-02 15:04:05")
 }
 
 func formatNoScriptSize(size uint64, pathType PathType) string {

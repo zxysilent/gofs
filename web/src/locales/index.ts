@@ -94,7 +94,6 @@ const zh: Record<string, string> = {
   'list.size': '大小',
   'list.mtime': '修改时间',
   'list.items': '{n} 项',
-  'list.today': '今天 {time}',
 
   // toolbar
   'toolbar.toggleSidebar': '切换侧栏',
@@ -257,7 +256,6 @@ const en: Record<string, string> = {
   'list.size': 'Size',
   'list.mtime': 'Modified',
   'list.items': '{n} items',
-  'list.today': 'Today {time}',
 
   // toolbar
   'toolbar.toggleSidebar': 'Toggle sidebar',

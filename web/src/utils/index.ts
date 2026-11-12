@@ -77,17 +77,14 @@ export function formatDirSize(size: number): string {
   return t('list.items', { n: size })
 }
 
+// 修改时间统一为 YYYY-MM-DD HH:mm:ss。
+// 以前列表里“今天”的行只显示时:分，与其他行格式不一致，也难以复制出去比对。
 export function formatTime(mtime: number): string {
   if (!mtime) return '-'
   const d = new Date(mtime)
+  if (Number.isNaN(d.getTime())) return '-'
   const pad = (n: number) => String(n).padStart(2, '0')
-  const today = new Date()
-  const sameDay =
-    d.getFullYear() === today.getFullYear() &&
-    d.getMonth() === today.getMonth() &&
-    d.getDate() === today.getDate()
-  if (sameDay) {
-    return t('list.today', { time: `${pad(d.getHours())}:${pad(d.getMinutes())}` })
-  }
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  return `${date} ${time}`
 }

@@ -940,17 +940,18 @@ body {
 
 /* list view */
 .file-list {
-  /* 各列最小值 + 4 个 8px 列间距 + 左右 14px 内边距 = 684px；低于这个宽度
+  /* 各列最小值 + 4 个 8px 列间距 + 左右 14px 内边距 = 704px；低于这个宽度
      就让列表自己横向滚动，而不是把文件名压到没有省略空间。 */
-  min-width: 684px;
+  min-width: 704px;
 }
 
 .file-list-head,
 .file-row {
   display: grid;
   /* 操作列只需放下 3 个 30px 图标（下载/复制路径/更多）+ 2×2px 间距 = 94px，
-     留 6px 余量；原来固定 130px，多出来的宽度只能白白空在那里。 */
-  grid-template-columns: minmax(220px, 1fr) 84px 88px 132px 100px;
+     留 6px 余量；原来固定 130px，多出来的宽度只能白白空在那里。
+     修改时间固定为 YYYY-MM-DD HH:mm:ss（19 字符），列宽相应加宽到 152px。 */
+  grid-template-columns: minmax(220px, 1fr) 84px 88px 152px 100px;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
