@@ -658,10 +658,12 @@ onMounted(() => {
         />
         <button
           v-if="filtering"
-          class="tree-filter-clear"
-          :title="t('common.cancel')"
+          class="input-clear"
+          type="button"
+          :title="t('common.clear')"
+          :aria-label="t('common.clear')"
           @click="clearFilter"
-          v-html="ICONS.close"
+          v-html="ICONS.x"
         ></button>
       </label>
       <button

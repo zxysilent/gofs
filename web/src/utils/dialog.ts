@@ -1,6 +1,6 @@
 // Custom modal dialogs + toast, replacing native prompt/confirm/alert which
 // are not supported in some (headless) environments.
-import { esc } from './icons'
+import { esc, ICONS } from './icons'
 import { t } from '../locales'
 
 function ensureModalRoot(): HTMLElement {
@@ -20,7 +20,10 @@ export function showInputDialog(title: string, placeholder: string, defaultValue
       <div class="modal-overlay" id="modal-overlay">
         <div class="modal-box">
           <div class="modal-title">${esc(title)}</div>
-          <input class="modal-input" id="modal-input" placeholder="${esc(placeholder)}" value="${esc(defaultValue)}" />
+          <div class="modal-field">
+            <input class="modal-input" id="modal-input" placeholder="${esc(placeholder)}" value="${esc(defaultValue)}" />
+            <button class="input-clear" id="modal-clear" type="button" title="${esc(t('common.clear'))}" aria-label="${esc(t('common.clear'))}">${ICONS.x}</button>
+          </div>
           <div class="modal-actions">
             <button class="btn" id="modal-cancel">${esc(t('common.cancel'))}</button>
             <button class="btn btn-primary" id="modal-ok">${esc(t('common.ok'))}</button>
@@ -28,7 +31,13 @@ export function showInputDialog(title: string, placeholder: string, defaultValue
         </div>
       </div>`
     const input = document.getElementById('modal-input') as HTMLInputElement
+    const clear = document.getElementById('modal-clear') as HTMLButtonElement
     const finish = (val: string | null) => { root.innerHTML = ''; resolve(val) }
+    // 有内容才显示清除按钮，空的时候不占位置、也不给一个“点了没事干”的图标
+    const syncClear = () => { clear.style.display = input.value ? '' : 'none' }
+    input.oninput = syncClear
+    syncClear()
+    clear.onclick = () => { input.value = ''; syncClear(); input.focus() }
     document.getElementById('modal-cancel')!.onclick = () => finish(null)
     document.getElementById('modal-ok')!.onclick = () => finish(input.value.trim())
     document.getElementById('modal-overlay')!.onclick = (e) => { if ((e.target as HTMLElement).id === 'modal-overlay') finish(null) }

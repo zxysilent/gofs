@@ -445,10 +445,10 @@ onMounted(async () => {
                 <!-- 有内容才显示清除按钮，空的时候不用占一个“点了没事干”的图标 -->
                 <button
                   v-if="hexInput"
-                  class="hex-clear"
+                  class="input-clear"
                   type="button"
-                  :title="t('preview.hexClear')"
-                  :aria-label="t('preview.hexClear')"
+                  :title="t('common.clear')"
+                  :aria-label="t('common.clear')"
                   @click="hexInput = ''"
                   v-html="ICONS.x"
                 ></button>

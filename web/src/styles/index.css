@@ -296,31 +296,6 @@ body {
   color: var(--text-secondary);
 }
 
-.tree-filter-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-
-.tree-filter-clear:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.tree-filter-clear svg {
-  width: 12px;
-  height: 12px;
-}
-
 .tree-tool-btn {
   display: inline-flex;
   align-items: center;
@@ -784,16 +759,6 @@ body {
   color: var(--text);
   font-size: 13px;
   width: 100%;
-}
-
-.search-clear {
-  border: none;
-  background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0;
 }
 
 .sort-group {
@@ -1288,50 +1253,64 @@ body {
   cursor: help;
 }
 
-/* 输入框 + 内嵌清除按钮 */
+/* 偏移量输入框：外框做成和目录过滤、搜索框一致的「图标/按钮 + 无边框输入」结构，
+   清除按钮就不需要绝对定位叠在输入框上（叠着时点击容易被 input 抢走）。 */
 .hex-field {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex-shrink: 0;
-}
-
-.hex-offset {
   width: 150px;
-  padding: 5px 26px 5px 8px;
+  padding: 5px 6px 5px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
+}
+
+.hex-field:focus-within {
+  border-color: var(--accent);
+}
+
+.hex-offset {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
   color: var(--text);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
 }
 
-.hex-offset:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-/* 清除按钮贴在输入框右侧，只改内容不改尺寸 */
-.hex-clear {
-  position: absolute;
-  top: 50%;
-  right: 4px;
-  display: flex;
+/* 输入框自带内容时的清除按钮：目录过滤、文件搜索、偏移量、重命名弹窗共用一套尺寸与 hover，
+   不再各写一个“×”。 */
+.input-clear {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
   padding: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  transform: translateY(-50%);
 }
 
-.hex-clear:hover {
+.input-clear:hover {
   background: var(--bg-hover);
   color: var(--text);
+}
+
+.input-clear svg {
+  display: block;
+  width: 12px;
+  height: 12px;
+  /* 覆盖全局图标下移，纯图标按钮居中就是对的 */
+  transform: none;
 }
 
 .hex-dump {
@@ -1697,21 +1676,32 @@ body {
   line-height: 1.6;
 }
 
-.modal-input {
-  width: 100%;
-  padding: 8px 12px;
+/* 弹窗输入框：外框负责边框与聚焦高亮，里面的 input 无边框，右侧挂统一的清除按钮 */
+.modal-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 13px;
   background: var(--bg);
-  color: var(--text);
-  margin-bottom: 16px;
-  box-sizing: border-box;
 }
 
-.modal-input:focus {
-  outline: none;
+.modal-field:focus-within {
   border-color: var(--accent);
+}
+
+.modal-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  font-size: 13px;
+  background: transparent;
+  color: var(--text);
+  box-sizing: border-box;
 }
 
 .modal-actions {

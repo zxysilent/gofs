@@ -86,7 +86,15 @@ function onFileChange(e: Event) {
           :placeholder="t('toolbar.search')"
           @keyup="onSearchKeyup"
         />
-        <button v-show="searchInput" class="search-clear" @click="clearSearch">×</button>
+        <button
+          v-if="searchInput"
+          class="input-clear"
+          type="button"
+          :title="t('common.clear')"
+          :aria-label="t('common.clear')"
+          @click="clearSearch"
+          v-html="ICONS.x"
+        ></button>
       </div>
       <button class="icon-btn" :title="t('common.refresh')" @click="emit('refresh')" v-html="ICONS.refresh"></button>
       <button

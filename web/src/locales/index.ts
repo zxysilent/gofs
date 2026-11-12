@@ -34,6 +34,7 @@ const zh: Record<string, string> = {
   'common.close': '关闭',
   'common.refresh': '刷新',
   'common.retry': '重试',
+  'common.clear': '清空',
   'common.loadFailed': '加载失败：{msg}',
 
   // app
@@ -178,7 +179,6 @@ const zh: Record<string, string> = {
   'preview.hexOffsetTitle':
     '支持十进制字节、0x 十六进制、二进制单位 K/KiB、M/MiB、G/GiB（按 1024 进位，4K = 4096）',
   'preview.hexBadOffset': '看不懂这个偏移量，试试 4096、0x1000、4K 或 1M',
-  'preview.hexClear': '清空偏移量',
   'preview.tooLarge': '文件过大，无法在线预览，请下载查看。',
   'preview.copyHash': '复制 SHA256',
   'preview.mtime': '修改',
@@ -208,6 +208,7 @@ const en: Record<string, string> = {
   'common.close': 'Close',
   'common.refresh': 'Refresh',
   'common.retry': 'Retry',
+  'common.clear': 'Clear',
   'common.loadFailed': 'Failed to load: {msg}',
 
   // app
@@ -352,7 +353,6 @@ const en: Record<string, string> = {
   'preview.hexOffsetTitle':
     'Accepts decimal bytes, 0x hex, binary units K/KiB, M/MiB, G/GiB (base 1024, 4K = 4096)',
   'preview.hexBadOffset': 'Unrecognised offset — try 4096, 0x1000, 4K or 1M',
-  'preview.hexClear': 'Clear offset',
   'preview.tooLarge': 'File is too large to preview. Please download it.',
   'preview.copyHash': 'Copy SHA256',
   'preview.mtime': 'Modified',
