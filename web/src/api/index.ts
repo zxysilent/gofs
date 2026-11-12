@@ -160,7 +160,12 @@ export async function fileHash(relPath: string): Promise<string> {
   return res.text()
 }
 
-export async function readText(relPath: string, maxBytes = 2 * 1024 * 1024): Promise<string> {
+// 文本预览/编辑的大小上限。浏览器把整个文件读成字符串再塞进 DOM（或 textarea），
+// 十几 MB 以上会明显卡顿，8 MiB 是能流畅看、也能编辑的实用上限。
+// 超过这个体积的文件仍可下载，二进制则走 hex 视图（Range 分段读取，不受此限制）。
+export const MAX_TEXT_BYTES = 8 * 1024 * 1024
+
+export async function readText(relPath: string, maxBytes = MAX_TEXT_BYTES): Promise<string> {
   const res = await fetch(absUrl(relPath))
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
   const len = Number(res.headers.get('Content-Length') || 0)

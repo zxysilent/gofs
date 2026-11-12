@@ -58,10 +58,7 @@ type PathItem struct {
 	PathType PathType `json:"path_type"`
 	Name     string   `json:"name"`
 	Mtime    uint64   `json:"mtime"`
-	// Ctime 是创建时间（Unix 毫秒）。拿不到时是 0：老内核、不支持 btime 的
-	// 文件系统，或平台本身没有这个字段。
-	Ctime uint64 `json:"ctime"`
-	Size  uint64 `json:"size"`
+	Size     uint64   `json:"size"`
 }
 
 func (p *PathItem) isDir() bool { return p.PathType.isDir() }
@@ -1459,10 +1456,6 @@ func (s *Server) toPathItem(p, basePath string) (*PathItem, error) {
 		pathType = pathFile
 	}
 	mtime := toTimestamp(info.ModTime())
-	var ctime uint64
-	if ct := fsutil.CreatedAt(p, info); !ct.IsZero() {
-		ctime = toTimestamp(ct)
-	}
 	var size uint64
 	if pathType.isDir() {
 		entries, err := os.ReadDir(p)
@@ -1492,7 +1485,7 @@ func (s *Server) toPathItem(p, basePath string) (*PathItem, error) {
 	if rel == "." {
 		rel = ""
 	}
-	return &PathItem{PathType: pathType, Name: filepath.ToSlash(rel), Mtime: mtime, Ctime: ctime, Size: size}, nil
+	return &PathItem{PathType: pathType, Name: filepath.ToSlash(rel), Mtime: mtime, Size: size}, nil
 }
 
 // collectDirEntries walks directories (following symlinks) and returns matching

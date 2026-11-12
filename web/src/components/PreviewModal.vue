@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { PathItem } from '../types'
 import { parentRelPath } from '../utils/paths'
 import { fileKind, formatSize, formatTime } from '../utils'
-import { absUrl, readText, readBytes, fileHash, saveFile } from '../api'
+import { absUrl, readText, readBytes, fileHash, saveFile, MAX_TEXT_BYTES } from '../api'
 import { renderMarkdown } from '../lib/markdown'
 import { hexDumpLines } from '../lib/hexdump'
 import { renderMath } from '../lib/math'
@@ -63,8 +63,19 @@ const htmlPreview = ref(true)
 // 源码是否确实读进来了。读不到时（比如超过 2MiB）禁止进入编辑与源码视图，
 // 否则编辑器是空的，一保存就把原文件截成 0 字节。
 const hasSource = ref(false)
+// 自动换行默认开启：代码/日志常见超长行，不换行的话要横向拖动才看得到行尾。
+const wrapLines = ref(true)
 
 const dirty = computed(() => editing.value && editContent.value !== originalContent.value)
+
+// 只有「按文本逐行展示」的视图才谈得上换行：富文本 markdown、图片、PDF 不需要。
+// 内容没读进来（超大文件、读失败）时也没有可换行的东西，开关一并隐藏。
+const canWrap = computed(() => {
+  if (bodyError.value) return false
+  if (editing.value) return !(kind === 'markdown' && mdPreview.value)
+  if (kind === 'html') return !htmlPreview.value && hasSource.value
+  return (kind === 'text' || kind === 'code' || kind === 'json') && hasSource.value
+})
 
 const hexText = computed(() => hexLines.value.join('\n'))
 const hexTotal = computed(() => Math.max(0, props.item.size || 0))
@@ -336,7 +347,10 @@ onMounted(async () => {
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
-    bodyError.value = msg === 'FILE_TOO_LARGE' ? t('preview.tooLarge') : msg
+    bodyError.value =
+      msg === 'FILE_TOO_LARGE'
+        ? t('preview.tooLarge', { limit: formatSize(MAX_TEXT_BYTES) })
+        : msg
   } finally {
     loading.value = false
   }
@@ -410,6 +424,8 @@ onMounted(async () => {
             v-else
             v-model="editContent"
             class="editor-textarea"
+            :class="{ 'no-wrap': !wrapLines }"
+            :wrap="wrapLines ? 'soft' : 'off'"
             spellcheck="false"
           ></textarea>
         </template>
@@ -463,7 +479,7 @@ onMounted(async () => {
             <pre v-else class="hex-dump">{{ hexText }}</pre>
           </div>
         </template>
-        <div v-else ref="bodyRef" v-html="bodyHtml"></div>
+        <div v-else ref="bodyRef" :class="{ 'no-wrap': !wrapLines }" v-html="bodyHtml"></div>
         <!-- hex 模式下下载按钮已在标题栏，这里再放一个会把 dump 挤出可视区 -->
         <div
           v-if="!loading && !editing && (bodyError || (!inlinePreview && !hexMode))"
@@ -474,9 +490,9 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <!-- 底栏常驻：大小 / 修改时间 / 创建时间 / SHA256。标题栏只留文件名，因此永远是单行。 -->
+      <!-- 底栏常驻：大小 / 修改时间 / SHA256；右侧是换行开关。标题栏只留文件名，因此永远是单行。 -->
       <div class="preview-foot">
-        <span class="preview-meta">{{ formatSize(item.size) }} · {{ t('preview.mtime') }} {{ formatTime(item.mtime) }}<template v-if="item.ctime"> · {{ t('preview.ctime') }} {{ formatTime(item.ctime) }}</template></span>
+        <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
         <span v-if="hash" class="preview-meta preview-hash" :title="hash">SHA256: {{ hash }}</span>
         <button
           v-if="hash"
@@ -485,6 +501,19 @@ onMounted(async () => {
           @click="copyHash"
           v-html="ICONS.copy"
         ></button>
+        <!-- 换行开关：两种状态都叫两个字（换行 / 滚动），配固定宽度，
+             点击时按钮尺寸和相邻元素位置都不动。 -->
+        <button
+          v-if="canWrap"
+          class="btn wrap-toggle"
+          :class="{ active: wrapLines }"
+          :aria-pressed="wrapLines"
+          :title="wrapLines ? t('preview.wrapOnTitle') : t('preview.wrapOffTitle')"
+          @click="wrapLines = !wrapLines"
+        >
+          <span v-html="wrapLines ? ICONS.wrap : ICONS.noWrap"></span
+          >{{ wrapLines ? t('preview.wrap') : t('preview.scroll') }}
+        </button>
       </div>
     </div>
   </div>

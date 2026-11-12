@@ -847,6 +847,35 @@ body {
   background: var(--bg-hover);
 }
 
+/* 开关式按钮（如预览里的“换行/滚动”）：文案在两种状态间切换，
+   用固定宽度把“换行”和“滚动”（以及 Wrap / Scroll）的差异吃掉，
+   点击时按钮尺寸与相邻按钮的位置都不动。 */
+.btn.wrap-toggle {
+  min-width: 84px;
+  justify-content: center;
+  /* 底栏是 12px 小字，按钮跟着缩一号，不抢内容区的注意力 */
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: 12px;
+  gap: 4px;
+}
+
+/* 底栏按钮里的图标也小一号 */
+.btn.wrap-toggle svg {
+  width: 13px;
+  height: 13px;
+}
+
+.btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn.active:hover {
+  background: var(--accent-soft);
+}
+
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
@@ -1330,13 +1359,22 @@ body {
   font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.6;
-  white-space: pre;
+  /* 默认自动换行：日志/压缩后的 JS 之类超长行，不换行就得横向拖着看。
+     overflow-wrap 让没有空格的超长串（hash、URL）也能在窗口内折断。 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow: auto;
   margin: 0;
   padding: 16px;
   background: var(--bg);
   border-radius: var(--radius);
   border: 1px solid var(--border);
+}
+
+/* 关闭自动换行：还原成逐行原样，超出的部分横向滚动 */
+.no-wrap .code-block {
+  white-space: pre;
+  overflow-wrap: normal;
 }
 
 .markdown-body {
@@ -1797,6 +1835,12 @@ body {
 .editor-textarea:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* 编辑器关闭换行时横向溢出（:wrap="off" 已让浏览器不折行，这里补滚动条） */
+.editor-textarea.no-wrap {
+  white-space: pre;
+  overflow-x: auto;
 }
 
 .editor-preview {

@@ -179,10 +179,12 @@ const zh: Record<string, string> = {
   'preview.hexOffsetTitle':
     '支持十进制字节、0x 十六进制、二进制单位 K/KiB、M/MiB、G/GiB（按 1024 进位，4K = 4096）',
   'preview.hexBadOffset': '看不懂这个偏移量，试试 4096、0x1000、4K 或 1M',
-  'preview.tooLarge': '文件过大，无法在线预览，请下载查看。',
+  'preview.tooLarge': '文件超过 {limit}，无法在线预览，请下载查看。',
+  'preview.wrap': '换行',
+  'preview.scroll': '滚动',
+  'preview.wrapOnTitle': '当前自动换行，点击改为横向滚动',
+  'preview.wrapOffTitle': '当前横向滚动，点击改为自动换行',
   'preview.copyHash': '复制 SHA256',
-  'preview.mtime': '修改',
-  'preview.ctime': '创建',
 
   // help page
   'help.back': '返回',
@@ -353,10 +355,12 @@ const en: Record<string, string> = {
   'preview.hexOffsetTitle':
     'Accepts decimal bytes, 0x hex, binary units K/KiB, M/MiB, G/GiB (base 1024, 4K = 4096)',
   'preview.hexBadOffset': 'Unrecognised offset — try 4096, 0x1000, 4K or 1M',
-  'preview.tooLarge': 'File is too large to preview. Please download it.',
+  'preview.tooLarge': 'Files over {limit} cannot be previewed in the browser; download instead.',
+  'preview.wrap': 'Wrap',
+  'preview.scroll': 'Scroll',
+  'preview.wrapOnTitle': 'Wrapping is on; click to scroll sideways',
+  'preview.wrapOffTitle': 'Scrolling sideways; click to wrap lines',
   'preview.copyHash': 'Copy SHA256',
-  'preview.mtime': 'Modified',
-  'preview.ctime': 'Created',
 
   // help page
   'help.back': 'Back',

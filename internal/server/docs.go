@@ -325,7 +325,7 @@ func genAgentDocZH(s *Server, base string) string {
 	d.list(
 		"`href` 当前路径；`kind` 为 `Index` / `Edit` / `View`。",
 		"`uri_prefix` 部署前缀；`allow_*` 为各能力的布尔开关。",
-		"`paths[]` 条目数组，每项含 `path_type`（`Dir`、`SymlinkDir`、`File`、`SymlinkFile`）、`name`、`mtime`（Unix 毫秒）、`ctime`（创建时间，Unix 毫秒；平台或文件系统拿不到时为 0）、`size`（文件为字节数，目录为条目数）。",
+		"`paths[]` 条目数组，每项含 `path_type`（`Dir`、`SymlinkDir`、`File`、`SymlinkFile`）、`name`、`mtime`（Unix 毫秒）、`size`（文件为字节数，目录为条目数）。",
 	)
 	d.h(3, "搜索")
 	d.line("```sh")
@@ -447,7 +447,7 @@ func genAgentDocEN(s *Server, base string) string {
 	d.list(
 		"`href` current path; `kind` is `Index` / `Edit` / `View`.",
 		"`uri_prefix` deployment prefix; `allow_*` are booleans for each capability.",
-		"`paths[]` array of entries; each has `path_type` (`Dir`, `SymlinkDir`, `File`, `SymlinkFile`), `name`, `mtime` (Unix milliseconds), `ctime` (creation time in Unix milliseconds, `0` when the platform or filesystem cannot report one) and `size` (bytes for files, entry count for directories).",
+		"`paths[]` array of entries; each has `path_type` (`Dir`, `SymlinkDir`, `File`, `SymlinkFile`), `name`, `mtime` (Unix milliseconds) and `size` (bytes for files, entry count for directories).",
 	)
 	d.h(3, "Search")
 	d.line("```sh")

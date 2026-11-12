@@ -52,6 +52,7 @@ const zh: HelpSection[] = [
     items: [
       '支持图片、视频、音频、PDF、Markdown、网页（HTML）、代码、JSON、文本在线预览。',
       '文本类文件可直接点"编辑"在线修改，<code>Ctrl/Cmd+S</code> 保存；Markdown 编辑时可切换预览。',
+      '代码与文本可在预览底栏右侧的"换行 / 滚动"开关间切换，默认自动换行；超过 8 MiB 的文件不展开预览与编辑（仍可下载，二进制走十六进制视图）。',
       'HTML 默认渲染成页面，可切到"源码"查看代码；页面在沙箱里运行，脚本无法访问本页数据。',
       '压缩包、可执行文件等无法直接预览的二进制会显示十六进制视图：默认 4 KiB，可翻页或输入偏移量跳转（支持 4096、0x1000、4K、1M）。',
     ],
@@ -110,6 +111,7 @@ const en: HelpSection[] = [
     items: [
       'Images, video, audio, PDF, Markdown, HTML pages, code, JSON and plain text can be previewed in the browser.',
       'Text-like files can be edited in place: click "Edit", then <code>Ctrl/Cmd+S</code> to save. Markdown editing can be toggled to preview.',
+      'The "Wrap / Scroll" toggle at the right of the preview footer switches between wrapped lines and horizontal scrolling (wrapping is the default). Files over 8 MiB are not opened for preview or editing, but can still be downloaded (binaries fall back to the hex view).',
       'HTML renders as a page by default, with a "Source" toggle. It runs sandboxed, so its scripts cannot reach this page.',
       'Binaries that cannot be previewed directly (archives, executables) get a hex view showing 4 KiB at a time, with paging and an offset jump (4096, 0x1000, 4K, 1M).',
     ],
