@@ -71,15 +71,36 @@ const hexTotal = computed(() => Math.max(0, props.item.size || 0))
 const hexWindowEnd = computed(() => hexOffset.value + hexLoaded.value)
 const hexHasPrev = computed(() => hexOffset.value > 0)
 const hexHasNext = computed(() => hexWindowEnd.value < hexTotal.value)
-// 偏移量 + 本窗覆盖的字节数，方便判断看的是哪一段。偏移按 hexdump 习惯显示成
-// 8 位十六进制，和左侧行首的地址列对齐。
-const hexNotice = computed(() => {
-  const hex = (n: number) => n.toString(16).padStart(8, '0')
-  return t('preview.hexRange', {
-    from: hex(hexOffset.value),
-    to: hex(Math.max(hexOffset.value, hexWindowEnd.value - 1)),
-    total: formatSize(hexTotal.value),
-  })
+
+// 范围读数给人话：十进制字节位置 + 千分位，比盯着 0x001e8470 猜位置直观；
+// 十六进制地址留在悬停提示里（dump 每行行首本来就有地址，不靠这条读）。
+function hexAddr(n: number): string {
+  return '0x' + n.toString(16).padStart(8, '0')
+}
+function groupNum(n: number): string {
+  return n.toLocaleString('en-US')
+}
+const hexEnd = computed(() => Math.max(hexOffset.value, hexWindowEnd.value - 1))
+const hexRangeBytes = computed(() =>
+  t('preview.hexRangeBytes', {
+    from: groupNum(hexOffset.value),
+    to: groupNum(hexEnd.value),
+    percent: hexPercentText.value,
+  }),
+)
+// 悬停看完整信息：十六进制地址 + 按大小换算的位置/总量。
+const hexRangeTitle = computed(
+  () =>
+    `${hexAddr(hexOffset.value)} – ${hexAddr(hexEnd.value)} · ` +
+    `${formatSize(hexOffset.value)} / ${formatSize(hexTotal.value)} · ${hexPercentText.value}%`,
+)
+// 进度：当前位置占文件的比例。小文件里刚翻一页时占比不足 1%，显示 <1% 而不是四舍五入成 0%。
+const hexPercent = computed(() =>
+  hexTotal.value ? Math.min(100, (hexOffset.value / hexTotal.value) * 100) : 0,
+)
+const hexPercentText = computed(() => {
+  const p = hexPercent.value
+  return p > 0 && p < 1 ? '<1' : String(Math.round(p))
 })
 
 const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: docBaseUrl }))
@@ -232,8 +253,9 @@ async function loadHex(start: number) {
   const size = hexTotal.value
   const offset = Math.max(0, Math.floor(start / HEX_ALIGN) * HEX_ALIGN)
   hexOffset.value = Math.min(offset, size)
-  // 输入框兼作当前位置的读数，翻页后也能看出自己在哪儿。
-  hexInput.value = '0x' + hexOffset.value.toString(16).padStart(8, '0')
+  // 输入框兼作当前位置的读数，翻页后也能看出自己在哪儿；和上方读数一样用十进制，
+  // 不用十六进制就不用在脑子里换算。
+  hexInput.value = String(hexOffset.value)
   if (size === 0) {
     hexLines.value = []
     hexLoaded.value = 0
@@ -261,13 +283,37 @@ async function loadHex(start: number) {
   }
 }
 
-// 跳到用户输入的偏移量。接受十进制与 0x 十六进制，非法输入保留原样以便就地改。
-// 负数/超出文件末尾的输入会被夹回合法区间。
+// 解析用户输入的偏移量。支持四种写法，覆盖「我知道确切位置」和「我只想看个大概」
+// 两类需求：
+//   4194304   十进制字节偏移
+//   0x400000  十六进制（和行首地址同一写法，可整段复制过来）
+//   4M / 512K 带单位（K/M/G，按 1024 进位）
+//   50%       文件百分比，大文件里先跳个大概再用翻页微调
+// 返回 null 表示无法解析。
+const UNIT_SCALE: Record<string, number> = { k: 1024, m: 1024 ** 2, g: 1024 ** 3 }
+
+function parseOffset(raw: string): number | null {
+  const s = raw.trim().toLowerCase().replace(/[\s_,]/g, '')
+  if (!s) return null
+  const pct = s.match(/^(\d+(?:\.\d+)?)%$/)
+  if (pct) {
+    const v = Math.round((hexTotal.value * Number(pct[1])) / 100)
+    return Math.max(0, Math.min(v, Math.max(0, hexTotal.value - 1)))
+  }
+  const unit = s.match(/^(\d+(?:\.\d+)?)([kmg])i?b?$/)
+  if (unit) {
+    return Math.round(Number(unit[1]) * UNIT_SCALE[unit[2]])
+  }
+  const hex = s.match(/^0x([0-9a-f]+)$/)
+  if (hex) return parseInt(hex[1], 16)
+  const n = Number(s)
+  return Number.isFinite(n) && n >= 0 ? n : null
+}
+
+// 跳到输入框里的偏移量；负数与超出末尾都夹回合法区间。
 function jumpHex() {
-  const raw = hexInput.value.trim()
-  if (!raw) return
-  const n = /^0x[0-9a-f]+$/i.test(raw) ? parseInt(raw, 16) : Number(raw)
-  if (!Number.isFinite(n) || n < 0) {
+  const n = parseOffset(hexInput.value)
+  if (n === null) {
     showToast(t('preview.hexBadOffset'), 'error')
     return
   }
@@ -389,8 +435,7 @@ onMounted(async () => {
         <template v-else-if="hexMode">
           <div class="hex-wrap">
             <div class="hex-bar">
-              <span class="preview-meta">{{ hexNotice }}</span>
-              <!-- 一次只加载 4 KiB：翻页按钮处理相邻窗口，输入框用于跳到任意偏移 -->
+              <span class="hex-range" :title="hexRangeTitle">{{ hexRangeBytes }}</span>
               <button
                 class="icon-btn"
                 :title="t('preview.hexPrev')"
@@ -412,6 +457,7 @@ onMounted(async () => {
                 spellcheck="false"
                 :placeholder="t('preview.hexOffsetPlaceholder')"
                 :title="t('preview.hexOffsetTitle')"
+                @focus="($event.target as HTMLInputElement).select()"
                 @keyup.enter="jumpHex"
               />
               <button class="btn" :disabled="hexLoading || !hexInput.trim()" @click="jumpHex">

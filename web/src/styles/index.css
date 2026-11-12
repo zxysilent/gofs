@@ -1275,18 +1275,21 @@ body {
   flex-shrink: 0;
 }
 
-.hex-bar .preview-meta {
-  /* 占满剩余宽度；窄窗口下用省略号，而不是把按钮和输入框挤出去 */
+/* 范围读数：十进制字节位置（千分位），十六进制地址放到悬停提示里 */
+.hex-range {
   flex: 1 1 auto;
   min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: help;
 }
 
 /* 偏移量输入框：窄一点，只放得下 0x 开头的数字 */
 .hex-offset {
-  width: 122px;
+  width: 130px;
   flex-shrink: 0;
   padding: 5px 8px;
   border: 1px solid var(--border);
