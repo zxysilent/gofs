@@ -883,16 +883,6 @@ body {
   background: var(--accent-hover);
 }
 
-/* 只有图标的紧凑按钮（预览标题栏里的次要操作），尺寸对齐 .icon-btn 但保留边框 */
-.btn-compact {
-  padding: 6px 8px;
-  color: var(--text-secondary);
-}
-
-.btn-compact:hover {
-  color: var(--text);
-}
-
 .icon-btn {
   display: inline-flex;
   align-items: center;

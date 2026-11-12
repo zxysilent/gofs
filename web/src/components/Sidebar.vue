@@ -231,6 +231,36 @@ async function copyAgentDoc() {
   )
 }
 
+// 说明内容里允许少量内联 HTML（<code> 等），复制成纯文本时去掉标签并把实体还原。
+function plainText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&')
+}
+
+// 拼接面向人的说明全文：小节标题 + 无标签的条目，方便直接粘出去。
+const helpPlainText = computed(() =>
+  helpSections.value
+    .map((s) => `## ${plainText(s.title)}\n` + s.items.map((i) => `- ${plainText(i)}`).join('\n'))
+    .join('\n\n'),
+)
+
+// 当前 tab 是否有可复制的全文（agent 手册要等加载完）。
+const canCopyAll = computed(() => (activeTab.value === 'human' ? true : !!agentDoc.value))
+
+async function copyAll() {
+  if (activeTab.value === 'agent') return copyAgentDoc()
+  const ok = await copyText(helpPlainText.value)
+  showToast(
+    ok ? t('toast.copiedGuide') : t('toast.copyFailedGuide'),
+    ok ? 'success' : 'error',
+  )
+}
+
 function makeNode(path: string, name: string): TreeNode {
   return reactive({ path, name, expanded: false, loaded: false, children: [] })
 }
@@ -698,6 +728,7 @@ onMounted(() => {
           <span class="setting-text">{{ themeLabel }}</span>
         </button>
         <button class="setting-btn" :title="localeTitle" @click="toggleLocale()">
+          <span class="setting-icon" v-html="ICONS.globe"></span>
           <span class="setting-lang">{{ localeLabel }}</span>
         </button>
       </div>
@@ -721,10 +752,10 @@ onMounted(() => {
           </div>
           <div class="toolbar-spacer"></div>
           <button
-            v-if="activeTab === 'agent' && agentDoc"
+            v-if="canCopyAll"
             class="btn"
-            :title="t('sidebar.copyAll')"
-            @click="copyAgentDoc"
+            :title="t('sidebar.copyAllTitle')"
+            @click="copyAll"
           >
             <span v-html="ICONS.copy"></span>{{ t('sidebar.copyAll') }}
           </button>
@@ -756,7 +787,9 @@ onMounted(() => {
           <pre v-else class="help-md">{{ agentDoc }}</pre>
         </div>
         <div class="modal-actions">
-          <button class="btn btn-primary" @click="showHelp = false">{{ t('common.close') }}</button>
+          <button class="btn btn-primary" @click="showHelp = false">
+            <span v-html="ICONS.x"></span>{{ t('common.close') }}
+          </button>
         </div>
       </div>
     </div>

@@ -55,6 +55,8 @@ const zh: Record<string, string> = {
   'toast.saveFailed': '保存失败: {msg}',
   'toast.copiedManual': '已复制接口手册全文',
   'toast.copyFailedManual': '复制失败，请手动选择复制',
+  'toast.copiedGuide': '已复制使用说明全文',
+  'toast.copyFailedGuide': '复制失败，请手动选择复制',
   'toast.copyHash': '已复制 SHA256',
 
   // dialogs
@@ -105,7 +107,7 @@ const zh: Record<string, string> = {
   'toolbar.sortSize': '大小',
   'toolbar.newFolder': '新建文件夹',
   'toolbar.newFile': '新建文件',
-  'toolbar.curlUpload': 'curl 上传命令',
+  'toolbar.curlUpload': 'cURL 上传',
   'toolbar.curlUploadTitle': '复制 curl 上传到此目录的命令',
   'toolbar.archive': '打包下载',
 
@@ -129,6 +131,7 @@ const zh: Record<string, string> = {
   'sidebar.tabGuide': '使用说明',
   'sidebar.tabAgent': 'Agent说明',
   'sidebar.copyAll': '复制全文',
+  'sidebar.copyAllTitle': '复制当前说明的全文',
   'sidebar.rawFile': '原始文件',
   'sidebar.copyUrl': '复制地址',
   'sidebar.rawFileTitle': '在新标签页打开原始 Markdown',
@@ -146,8 +149,8 @@ const zh: Record<string, string> = {
   'preview.download': '下载',
   'preview.downloadFile': '下载文件',
   'preview.copyLink': '复制链接',
-  'preview.curlDownload': 'curl 下载',
-  'preview.openNew': '新窗口打开',
+  'preview.curlDownload': '复制 cURL',
+  'preview.openNew': '新窗口',
   'preview.openNewTitle': '在浏览器新窗口打开',
   'preview.fullscreen': '全屏',
   'preview.fullscreenTitle': '铺满窗口显示',
@@ -211,6 +214,8 @@ const en: Record<string, string> = {
   'toast.saveFailed': 'Save failed: {msg}',
   'toast.copiedManual': 'API manual copied',
   'toast.copyFailedManual': 'Copy failed, please select and copy manually',
+  'toast.copiedGuide': 'Full guide copied',
+  'toast.copyFailedGuide': 'Copy failed, please select and copy manually',
   'toast.copyHash': 'SHA256 copied',
 
   // dialogs
@@ -261,7 +266,7 @@ const en: Record<string, string> = {
   'toolbar.sortSize': 'Size',
   'toolbar.newFolder': 'New folder',
   'toolbar.newFile': 'New file',
-  'toolbar.curlUpload': 'curl upload',
+  'toolbar.curlUpload': 'cURL Upload',
   'toolbar.curlUploadTitle': 'Copy the curl command to upload into this folder',
   'toolbar.archive': 'Download zip',
 
@@ -285,6 +290,7 @@ const en: Record<string, string> = {
   'sidebar.tabGuide': 'Guide',
   'sidebar.tabAgent': 'Agent guide',
   'sidebar.copyAll': 'Copy all',
+  'sidebar.copyAllTitle': 'Copy the full text of this guide',
   'sidebar.rawFile': 'Raw file',
   'sidebar.copyUrl': 'Copy URL',
   'sidebar.rawFileTitle': 'Open the raw Markdown in a new tab',
@@ -302,8 +308,8 @@ const en: Record<string, string> = {
   'preview.download': 'Download',
   'preview.downloadFile': 'Download file',
   'preview.copyLink': 'Copy link',
-  'preview.curlDownload': 'curl download',
-  'preview.openNew': 'Open in new tab',
+  'preview.curlDownload': 'Copy cURL',
+  'preview.openNew': 'New tab',
   'preview.openNewTitle': 'Open in a new browser tab',
   'preview.fullscreen': 'Fullscreen',
   'preview.fullscreenTitle': 'Fill the browser window',

@@ -30,6 +30,9 @@ const editable = computed(() =>
   kind === 'text' || kind === 'code' || kind === 'json' || kind === 'markdown' || kind === 'html',
 )
 
+// 能在弹窗内直接看到内容的类型；其余（压缩包、未知二进制、读取失败）只提供下载。
+const inlinePreview = computed(() => editable.value || ['image', 'video', 'audio', 'pdf'].includes(kind))
+
 const bodyHtml = ref<string>('')
 const bodyError = ref('')
 const loading = ref(true)
@@ -43,7 +46,7 @@ const saving = ref(false)
 const mdPreview = ref(false) // markdown 编辑时的预览开关
 // HTML 默认渲染成网页，可切回源码（看 meta / 样式等）。
 const htmlPreview = ref(true)
-// HTML 的源码是否确实读进来了。读不到时（比如文件超大）禁止进入编辑，
+// 源码是否确实读进来了。读不到时（比如超过 2MiB）禁止进入编辑与源码视图，
 // 否则编辑器是空的，一保存就把原文件截成 0 字节。
 const hasSource = ref(false)
 
@@ -216,6 +219,7 @@ onMounted(async () => {
       const text = await readText(props.path)
       originalContent.value = text
       editContent.value = text
+      hasSource.value = true
       renderTextView(text)
     } else {
       bodyHtml.value = `<div class="preview-center"><div class="binary-box">${ICONS.file}<p>${t('preview.notSupported')}</p><p class="preview-meta">${formatSize(props.item.size)}</p></div></div>`
@@ -243,32 +247,33 @@ onMounted(async () => {
         <span v-if="dirty" class="preview-dirty">{{ t('preview.unsaved') }}</span>
         <div class="preview-actions">
           <template v-if="!editing">
+            <!-- 同一组按钮统一为「图标 + 文字」，不混用纯图标 -->
             <button
-              v-if="kind === 'html'"
+              v-if="kind === 'html' && hasSource"
               class="btn"
               :title="htmlPreview ? t('preview.sourceTitle') : t('preview.renderedTitle')"
               @click="toggleHtmlPreview"
             >
-              {{ htmlPreview ? t('preview.source') : t('preview.rendered') }}
+              <span v-html="htmlPreview ? ICONS.code : ICONS.eye"></span
+              >{{ htmlPreview ? t('preview.source') : t('preview.rendered') }}
             </button>
-            <button v-if="editable && allowUpload && (kind !== 'html' || hasSource)" class="btn" @click="startEdit">
+            <button v-if="editable && allowUpload && hasSource" class="btn" @click="startEdit">
               <span v-html="ICONS.rename"></span>{{ t('preview.edit') }}
             </button>
             <button class="btn" @click="download"><span v-html="ICONS.download"></span>{{ t('preview.download') }}</button>
-            <!-- 下载的几种方式里的次要项只留图标 + tooltip，否则标题栏一行放不下，
-                 按钮文字会被折成两行。 -->
-            <button class="btn btn-compact" :title="t('preview.copyLink')" @click="copyLink"><span v-html="ICONS.link"></span></button>
-            <button class="btn btn-compact" :title="t('action.copyCurl')" @click="copyCurl"><span v-html="ICONS.terminal"></span></button>
-            <button class="btn btn-compact" :title="t('preview.openNewTitle')" @click="openInNewTab"><span v-html="ICONS.external"></span></button>
+            <button class="btn" :title="t('preview.copyLink')" @click="copyLink"><span v-html="ICONS.link"></span>{{ t('preview.copyLink') }}</button>
+            <button class="btn" :title="t('action.copyCurl')" @click="copyCurl"><span v-html="ICONS.terminal"></span>{{ t('preview.curlDownload') }}</button>
+            <button class="btn" :title="t('preview.openNewTitle')" @click="openInNewTab"><span v-html="ICONS.external"></span>{{ t('preview.openNew') }}</button>
           </template>
           <template v-else>
             <button v-if="kind === 'markdown'" class="btn" @click="mdPreview = !mdPreview">
-              {{ mdPreview ? t('preview.continueEdit') : t('preview.preview') }}
+              <span v-html="mdPreview ? ICONS.rename : ICONS.eye"></span
+              >{{ mdPreview ? t('preview.continueEdit') : t('preview.preview') }}
             </button>
             <button class="btn btn-primary" :disabled="saving || !dirty" @click="save">
-              {{ saving ? t('preview.saving') : t('preview.save') }}
+              <span v-html="ICONS.check"></span>{{ saving ? t('preview.saving') : t('preview.save') }}
             </button>
-            <button class="btn" @click="cancelEdit">{{ t('common.cancel') }}</button>
+            <button class="btn" @click="cancelEdit"><span v-html="ICONS.x"></span>{{ t('common.cancel') }}</button>
           </template>
           <button
             class="btn"
@@ -300,8 +305,13 @@ onMounted(async () => {
           ></textarea>
         </template>
         <div v-else ref="bodyRef" v-html="bodyHtml"></div>
-        <div v-if="!loading && !editing && kind === 'binary'" style="text-align:center;margin-top:12px">
-          <button class="btn btn-primary" @click="download">{{ t('preview.downloadFile') }}</button>
+        <div
+          v-if="!loading && !editing && (!inlinePreview || bodyError)"
+          style="text-align:center;margin-top:12px"
+        >
+          <button class="btn btn-primary" @click="download">
+            <span v-html="ICONS.download"></span>{{ t('preview.downloadFile') }}
+          </button>
         </div>
       </div>
       <div v-if="hash" class="preview-foot">
