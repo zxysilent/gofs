@@ -14,6 +14,10 @@ export const ICONS: Record<string, string> = {
     '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-7h-2v5h2V9z"/></svg>',
   file: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>',
   chevronRight: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M8 5l7 7-7 7V5z"/></svg>',
+  // 16px 版本给 .icon-btn / .btn 用（图标按钮与文字并排时尺寸要统一）
+  chevronLeft16: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M16 5l-7 7 7 7V5z"/></svg>',
+  chevronRight16: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M8 5l7 7-7 7V5z"/></svg>',
+  arrowRight: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M4 11h12.17l-5.59-5.59L12 4l8 8-8 8-1.41-1.41L16.17 13H4v-2z"/></svg>',
   chevronDown: '<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M5 8l7 7 7-7H5z"/></svg>',
   search: '<svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z"/></svg>',
   refresh: '<svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8h-2a6 6 0 1 1-1.76-4.24L13 11h7V4l-2.35 2.35z"/></svg>',

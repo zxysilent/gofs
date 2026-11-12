@@ -1269,14 +1269,37 @@ body {
 .hex-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .hex-bar .preview-meta {
-  margin-right: auto;
+  /* 占满剩余宽度；窄窗口下用省略号，而不是把按钮和输入框挤出去 */
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* 偏移量输入框：窄一点，只放得下 0x 开头的数字 */
+.hex-offset {
+  width: 122px;
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.hex-offset:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .hex-dump {

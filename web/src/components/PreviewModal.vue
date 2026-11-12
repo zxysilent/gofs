@@ -34,17 +34,18 @@ const editable = computed(() =>
 // 能在弹窗内直接看到内容的类型；其余（压缩包、未知二进制、读取失败）只提供下载。
 const inlinePreview = computed(() => editable.value || ['image', 'video', 'audio', 'pdf'].includes(kind))
 
-// 不能直接预览的二进制改用 hexdump：按 Range 分块拉取，看几行魔数不需要下载整个文件。
+// 不能直接预览的二进制改用 hexdump：按 Range 分窗拉取，看几行魔数不需要下载
+// 整个文件。窗口固定 4 KiB（正好 256 行），想看别处就输入偏移量跳过去 ——
+// 不做无限追加，避免几 GB 的文件把 DOM 和内存拖垮。
 const hexMode = computed(() => !inlinePreview.value)
-const HEX_CHUNK = 16 * 1024
-const HEX_INITIAL = 32 * 1024
-// 上限：再大就只是在刷 DOM，真要看内容应该下载下来。
-const HEX_LIMIT = 256 * 1024
+const HEX_WINDOW = 4 * 1024
+const HEX_ALIGN = 16
 const hexLines = ref<string[]>([])
-const hexLoaded = ref(0)
+const hexOffset = ref(0) // 当前窗口起始偏移，始终按 16 字节对齐
+const hexLoaded = ref(0) // 当前窗口实际读到的字节数
 const hexLoading = ref(false)
-const hexHasMore = ref(false)
 const hexError = ref('')
+const hexInput = ref('')
 
 const bodyHtml = ref<string>('')
 const bodyError = ref('')
@@ -67,16 +68,19 @@ const dirty = computed(() => editing.value && editContent.value !== originalCont
 
 const hexText = computed(() => hexLines.value.join('\n'))
 const hexTotal = computed(() => Math.max(0, props.item.size || 0))
-const hexCanLoadMore = computed(
-  () => hexHasMore.value && hexLoaded.value < HEX_LIMIT && hexLoaded.value < hexTotal.value,
-)
-// 首行提示：已渲染多少 / 文件多大，避免误以为看的就是全部内容。
-const hexNotice = computed(() =>
-  t('preview.hexShown', {
-    shown: formatSize(hexLoaded.value),
+const hexWindowEnd = computed(() => hexOffset.value + hexLoaded.value)
+const hexHasPrev = computed(() => hexOffset.value > 0)
+const hexHasNext = computed(() => hexWindowEnd.value < hexTotal.value)
+// 偏移量 + 本窗覆盖的字节数，方便判断看的是哪一段。偏移按 hexdump 习惯显示成
+// 8 位十六进制，和左侧行首的地址列对齐。
+const hexNotice = computed(() => {
+  const hex = (n: number) => n.toString(16).padStart(8, '0')
+  return t('preview.hexRange', {
+    from: hex(hexOffset.value),
+    to: hex(Math.max(hexOffset.value, hexWindowEnd.value - 1)),
     total: formatSize(hexTotal.value),
-  }),
-)
+  })
+})
 
 const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: docBaseUrl }))
 
@@ -220,39 +224,54 @@ function renderTextView(text: string) {
   }
 }
 
-// 读取二进制片段并追加到 hexdump。
-// append=true 时从已加载位置续读一个块，否则从 0 开始读首屏大小。
-async function loadHex(append: boolean) {
+// 读取一个 4 KiB 窗口并整屏替换。
+// 偏移量按 16 字节对齐（hexdump 的行边界），超出文件末尾的请求会被服务端裁剪，
+// 所以不用先把 offset 夹到 size 以内。
+async function loadHex(start: number) {
   if (hexLoading.value) return
   const size = hexTotal.value
+  const offset = Math.max(0, Math.floor(start / HEX_ALIGN) * HEX_ALIGN)
+  hexOffset.value = Math.min(offset, size)
+  // 输入框兼作当前位置的读数，翻页后也能看出自己在哪儿。
+  hexInput.value = '0x' + hexOffset.value.toString(16).padStart(8, '0')
   if (size === 0) {
     hexLines.value = []
     hexLoaded.value = 0
-    hexHasMore.value = false
     return
   }
-  const start = append ? hexLoaded.value : 0
-  if (start >= size) {
-    hexHasMore.value = false
+  if (hexOffset.value >= size) {
+    hexLines.value = []
+    hexLoaded.value = 0
     return
   }
   hexLoading.value = true
   hexError.value = ''
   try {
-    const want = append ? HEX_CHUNK : HEX_INITIAL
-    const end = Math.min(start + want, size) - 1
-    const bytes = await readBytes(props.path, start, end)
-    const lines = hexDumpLines(bytes, start)
-    hexLines.value = append ? hexLines.value.concat(lines) : lines
-    hexLoaded.value = start + bytes.length
-    hexHasMore.value = hexLoaded.value < size
+    const end = Math.min(hexOffset.value + HEX_WINDOW, size) - 1
+    const bytes = await readBytes(props.path, hexOffset.value, end)
+    hexLines.value = hexDumpLines(bytes, hexOffset.value)
+    hexLoaded.value = bytes.length
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     hexError.value = msg === 'RANGE_UNSUPPORTED' ? t('preview.hexNoRange') : msg
-    hexHasMore.value = false
+    hexLines.value = []
+    hexLoaded.value = 0
   } finally {
     hexLoading.value = false
   }
+}
+
+// 跳到用户输入的偏移量。接受十进制与 0x 十六进制，非法输入保留原样以便就地改。
+// 负数/超出文件末尾的输入会被夹回合法区间。
+function jumpHex() {
+  const raw = hexInput.value.trim()
+  if (!raw) return
+  const n = /^0x[0-9a-f]+$/i.test(raw) ? parseInt(raw, 16) : Number(raw)
+  if (!Number.isFinite(n) || n < 0) {
+    showToast(t('preview.hexBadOffset'), 'error')
+    return
+  }
+  void loadHex(Math.min(n, Math.max(0, hexTotal.value - 1)))
 }
 
 onMounted(async () => {
@@ -284,7 +303,7 @@ onMounted(async () => {
       renderTextView(text)
     } else if (hexMode.value) {
       // 压缩包与未知二进制：给 hexdump，而不是把「不支持预览」直接写在脸上。
-      await loadHex(false)
+      await loadHex(0)
     } else {
       bodyHtml.value = `<div class="preview-center"><div class="binary-box">${ICONS.file}<p>${t('preview.notSupported')}</p><p class="preview-meta">${formatSize(props.item.size)}</p></div></div>`
     }
@@ -371,13 +390,32 @@ onMounted(async () => {
           <div class="hex-wrap">
             <div class="hex-bar">
               <span class="preview-meta">{{ hexNotice }}</span>
+              <!-- 一次只加载 4 KiB：翻页按钮处理相邻窗口，输入框用于跳到任意偏移 -->
               <button
-                v-if="hexCanLoadMore"
-                class="btn"
-                :disabled="hexLoading"
-                @click="loadHex(true)"
-              >
-                <span v-html="ICONS.more"></span>{{ hexLoading ? t('common.loading') : t('preview.hexMore') }}
+                class="icon-btn"
+                :title="t('preview.hexPrev')"
+                :disabled="!hexHasPrev || hexLoading"
+                @click="loadHex(hexOffset - HEX_WINDOW)"
+                v-html="ICONS.chevronLeft16"
+              ></button>
+              <button
+                class="icon-btn"
+                :title="t('preview.hexNext')"
+                :disabled="!hexHasNext || hexLoading"
+                @click="loadHex(hexOffset + HEX_WINDOW)"
+                v-html="ICONS.chevronRight16"
+              ></button>
+              <input
+                v-model="hexInput"
+                class="hex-offset"
+                type="text"
+                spellcheck="false"
+                :placeholder="t('preview.hexOffsetPlaceholder')"
+                :title="t('preview.hexOffsetTitle')"
+                @keyup.enter="jumpHex"
+              />
+              <button class="btn" :disabled="hexLoading || !hexInput.trim()" @click="jumpHex">
+                <span v-html="ICONS.arrowRight"></span>{{ t('preview.hexGo') }}
               </button>
             </div>
             <div v-if="hexError" class="preview-error">{{ hexError }}</div>
