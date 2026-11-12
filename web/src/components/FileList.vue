@@ -22,6 +22,7 @@ const emit = defineEmits<{
   (e: 'delete', item: PathItem): void
   (e: 'rename', item: PathItem): void
   (e: 'copy', item: PathItem): void
+  (e: 'copy-name', item: PathItem): void
   (e: 'copy-curl', item: PathItem): void
   (e: 'open-new', item: PathItem): void
   (e: 'download-archive', item: PathItem): void
@@ -125,7 +126,14 @@ function kindLabel(item: PathItem): string {
       >
         <div class="col-name">
           <span class="file-icon" :class="'kind-' + fileKind(item.name)" v-html="isDir(item) ? ICONS.folder : ICONS.file"></span>
-          <span class="file-name">{{ item.name }}</span>
+          <span class="file-name" :title="item.name">{{ item.name }}</span>
+          <!-- 仅悬停时出现的小按钮，平时不干扰阅读 -->
+          <button
+            class="icon-btn name-copy"
+            :title="t('action.copyName')"
+            @click.stop="emit('copy-name', item)"
+            v-html="ICONS.copy"
+          ></button>
         </div>
         <div class="col-type">{{ kindLabel(item) }}</div>
         <div class="col-size">{{ isDir(item) ? formatDirSize(item.size) : formatSize(item.size) }}</div>

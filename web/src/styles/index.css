@@ -874,6 +874,21 @@ body {
   vertical-align: middle;
 }
 
+/* 图标与文字并排时的光学对齐。
+   flex 的 align-items:center 对齐的是行盒中心，而拉丁字母的视觉中心（x-height
+   中心）比行盒中心低约 1.2px，所以图标看上去偏高一点。统一下移 1px；
+   纯图标按钮不在此列，它们居中就是对的。 */
+.btn > span svg,
+.help-btn-icon svg,
+.setting-icon svg,
+.ctx-menu-icon svg,
+.file-icon svg,
+.tree-icon svg,
+.sidebar-label-icon svg,
+.tree-filter-icon svg {
+  transform: translateY(1px);
+}
+
 .btn:hover {
   background: var(--bg-hover);
 }
@@ -936,13 +951,17 @@ body {
 
 /* list view */
 .file-list {
-  min-width: 620px;
+  /* 各列最小值 + 4 个 8px 列间距 + 左右 14px 内边距 = 684px；低于这个宽度
+     就让列表自己横向滚动，而不是把文件名压到没有省略空间。 */
+  min-width: 684px;
 }
 
 .file-list-head,
 .file-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 90px 90px 140px 130px;
+  /* 操作列只需放下 3 个 30px 图标（下载/复制路径/更多）+ 2×2px 间距 = 94px，
+     留 6px 余量；原来固定 130px，多出来的宽度只能白白空在那里。 */
+  grid-template-columns: minmax(220px, 1fr) 84px 88px 132px 100px;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
@@ -975,12 +994,40 @@ body {
   align-items: center;
   gap: 10px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .file-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 让出空间给后面的复制按钮，长文件名先省略而不是把按钮顶掉 */
+  min-width: 0;
+}
+
+/* 文件名后的“复制名称”按钮：默认隐形，行悬停/聚焦时淡入 */
+.name-copy {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.name-copy svg {
+  width: 13px;
+  height: 13px;
+}
+
+.file-row:hover .name-copy,
+.name-copy:focus-visible {
+  opacity: 1;
+}
+
+.name-copy:hover {
+  background: var(--bg-panel);
+  color: var(--text);
 }
 
 .file-icon {
@@ -1028,9 +1075,13 @@ body {
 .col-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 2px;
   opacity: 0;
   transition: opacity 0.15s;
+  /* 列宽已收窄到内容宽度，不能被压缩掉 */
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .file-row:hover .col-actions {
@@ -1164,6 +1215,8 @@ body {
 }
 
 .preview-title {
+  /* 占满剩余宽度，文件名过长时用省略号；按钮组不压缩，所以只有一个可伸缩项。 */
+  flex: 1 1 auto;
   font-weight: 600;
   font-size: 15px;
   overflow: hidden;
@@ -1177,6 +1230,8 @@ body {
   color: var(--text-secondary);
   font-size: 12px;
   white-space: nowrap;
+  /* 底栏里的大小/时间不参与收缩，压缩留给 SHA256 */
+  flex-shrink: 0;
 }
 
 .preview-actions {
@@ -1480,11 +1535,13 @@ body {
 .preview-foot {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px 6px 16px;
   border-top: 1px solid var(--border);
   overflow: hidden;
   white-space: nowrap;
+  color: var(--text-secondary);
+  font-size: 12px;
 }
 
 /* SHA256 文本按内容收缩，复制按钮紧跟其后（不再被推到最右） */

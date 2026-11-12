@@ -44,6 +44,7 @@ const zh: Record<string, string> = {
 
   // toasts
   'toast.copyPath': '已复制完整路径',
+  'toast.copyName': '已复制文件名',
   'toast.copyRelPath': '已复制路径',
   'toast.copyCmd': '已复制命令',
   'toast.copyFailed': '复制失败，请手动复制: {text}',
@@ -114,6 +115,7 @@ const zh: Record<string, string> = {
   // actions
   'action.downloadArchive': '打包下载',
   'action.copyPath': '复制完整路径',
+  'action.copyName': '复制文件名',
   'action.copyCurl': '复制 curl 下载命令',
   'action.openNew': '新窗口打开',
   'action.rename': '重命名',
@@ -205,6 +207,7 @@ const en: Record<string, string> = {
 
   // toasts
   'toast.copyPath': 'Full path copied',
+  'toast.copyName': 'File name copied',
   'toast.copyRelPath': 'Path copied',
   'toast.copyCmd': 'Command copied',
   'toast.copyFailed': 'Copy failed, please copy manually: {text}',
@@ -275,6 +278,7 @@ const en: Record<string, string> = {
   // actions
   'action.downloadArchive': 'Download as zip',
   'action.copyPath': 'Copy full path',
+  'action.copyName': 'Copy file name',
   'action.copyCurl': 'Copy curl download command',
   'action.openNew': 'Open in new tab',
   'action.rename': 'Rename',

@@ -257,6 +257,11 @@ async function onCopyItem(item: PathItem) {
   )
 }
 
+// 只复制文件名（不含路径）。
+async function onCopyName(item: PathItem) {
+  await copyAndToast(item.name, t('toast.copyName'))
+}
+
 // 复制 curl 下载命令。
 async function onCopyCurl(item: PathItem) {
   const fullUrl = location.origin + absUrl(joinRelPath(relPath.value, item.name))
@@ -432,6 +437,7 @@ onBeforeUnmount(() => {
           @delete="onDeleteItem"
           @rename="onRenameItem"
           @copy="onCopyItem"
+          @copy-name="onCopyName"
           @copy-curl="onCopyCurl"
           @open-new="onOpenInNewTab"
           @download-archive="onDownloadItemArchive"

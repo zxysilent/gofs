@@ -243,7 +243,6 @@ onMounted(async () => {
     <div class="preview-modal" :class="{ 'preview-modal-full': fullscreen }">
       <div class="preview-head">
         <span class="preview-title" :title="item.name">{{ item.name }}</span>
-        <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
         <span v-if="dirty" class="preview-dirty">{{ t('preview.unsaved') }}</span>
         <div class="preview-actions">
           <template v-if="!editing">
@@ -314,9 +313,17 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <div v-if="hash" class="preview-foot">
-        <span class="preview-meta preview-hash" :title="hash">SHA256: {{ hash }}</span>
-        <button class="icon-btn hash-copy" :title="t('preview.copyHash')" @click="copyHash" v-html="ICONS.copy"></button>
+      <!-- 底栏常驻：大小 / 修改时间 / SHA256。标题栏只留文件名，因此永远是单行。 -->
+      <div class="preview-foot">
+        <span class="preview-meta">{{ formatSize(item.size) }} · {{ formatTime(item.mtime) }}</span>
+        <span v-if="hash" class="preview-meta preview-hash" :title="hash">SHA256: {{ hash }}</span>
+        <button
+          v-if="hash"
+          class="icon-btn hash-copy"
+          :title="t('preview.copyHash')"
+          @click="copyHash"
+          v-html="ICONS.copy"
+        ></button>
       </div>
     </div>
   </div>
