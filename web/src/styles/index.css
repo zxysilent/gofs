@@ -846,6 +846,9 @@ body {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
+  /* 按钮文字不拆行：容器挤的时候宁可让旁边的标题缩写，也不要把
+     "Copy link" 折成两行把按钮撑成方块。 */
+  white-space: nowrap;
 }
 
 /* 让按钮内包裹 svg 的 span 以及 svg 本身都垂直居中，避免基线对齐导致的偏移 */
@@ -878,6 +881,16 @@ body {
 
 .btn-primary:hover {
   background: var(--accent-hover);
+}
+
+/* 只有图标的紧凑按钮（预览标题栏里的次要操作），尺寸对齐 .icon-btn 但保留边框 */
+.btn-compact {
+  padding: 6px 8px;
+  color: var(--text-secondary);
+}
+
+.btn-compact:hover {
+  color: var(--text);
 }
 
 .icon-btn {
@@ -1147,7 +1160,10 @@ body {
 .preview-head {
   display: flex;
   align-items: center;
+  /* 标题与按钮同排；确实放不下时整组按钮换到第二行，而不是逐个压窄。 */
+  flex-wrap: wrap;
   gap: 12px;
+  row-gap: 8px;
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
 }
@@ -1158,6 +1174,8 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* flex 子项默认 min-width:auto，不加这行文件名不会缩写，只会把按钮挤走。 */
+  min-width: 0;
 }
 
 .preview-meta {
@@ -1170,6 +1188,13 @@ body {
   margin-left: auto;
   display: flex;
   gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+/* 按钮整体不压缩，压缩交给左边的文件名（它带省略号） */
+.preview-actions .btn {
+  flex-shrink: 0;
 }
 
 .preview-body {

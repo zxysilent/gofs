@@ -255,9 +255,11 @@ onMounted(async () => {
               <span v-html="ICONS.rename"></span>{{ t('preview.edit') }}
             </button>
             <button class="btn" @click="download"><span v-html="ICONS.download"></span>{{ t('preview.download') }}</button>
-            <button class="btn" @click="copyLink"><span v-html="ICONS.link"></span>{{ t('preview.copyLink') }}</button>
-            <button class="btn" :title="t('action.copyCurl')" @click="copyCurl"><span v-html="ICONS.terminal"></span>{{ t('preview.curlDownload') }}</button>
-            <button class="btn" :title="t('preview.openNewTitle')" @click="openInNewTab"><span v-html="ICONS.external"></span>{{ t('preview.openNew') }}</button>
+            <!-- 下载的几种方式里的次要项只留图标 + tooltip，否则标题栏一行放不下，
+                 按钮文字会被折成两行。 -->
+            <button class="btn btn-compact" :title="t('preview.copyLink')" @click="copyLink"><span v-html="ICONS.link"></span></button>
+            <button class="btn btn-compact" :title="t('action.copyCurl')" @click="copyCurl"><span v-html="ICONS.terminal"></span></button>
+            <button class="btn btn-compact" :title="t('preview.openNewTitle')" @click="openInNewTab"><span v-html="ICONS.external"></span></button>
           </template>
           <template v-else>
             <button v-if="kind === 'markdown'" class="btn" @click="mdPreview = !mdPreview">
