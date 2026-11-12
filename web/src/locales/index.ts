@@ -99,8 +99,8 @@ const zh: Record<string, string> = {
   // toolbar
   'toolbar.toggleSidebar': '切换侧栏',
   'toolbar.search': '搜索文件...',
-  'toolbar.listView': '列表视图',
-  'toolbar.gridView': '网格视图',
+  'toolbar.fullscreen': '全屏',
+  'toolbar.exitFullscreen': '退出全屏',
   'toolbar.upload': '上传',
   'toolbar.sort': '排序',
   'toolbar.sortName': '名称',
@@ -262,8 +262,8 @@ const en: Record<string, string> = {
   // toolbar
   'toolbar.toggleSidebar': 'Toggle sidebar',
   'toolbar.search': 'Search files...',
-  'toolbar.listView': 'List view',
-  'toolbar.gridView': 'Grid view',
+  'toolbar.fullscreen': 'Fullscreen',
+  'toolbar.exitFullscreen': 'Exit fullscreen',
   'toolbar.upload': 'Upload',
   'toolbar.sort': 'Sort',
   'toolbar.sortName': 'Name',

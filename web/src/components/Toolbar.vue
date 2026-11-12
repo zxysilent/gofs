@@ -3,13 +3,13 @@ import { ref, watch } from 'vue'
 import type { SortKey, SortOrder } from '../types'
 import { ICONS } from '../utils/icons'
 import { t } from '../locales'
+import { useFullscreen } from '../utils/fullscreen'
 
 const props = defineProps<{
   breadcrumbs: { name: string; path: string }[]
   allowUpload: boolean
   allowArchive: boolean
   allowSearch: boolean
-  viewMode: 'list' | 'grid'
   search: string
   sort: SortKey
   order: SortOrder
@@ -19,7 +19,6 @@ const emit = defineEmits<{
   (e: 'toggle-sidebar'): void
   (e: 'search', q: string): void
   (e: 'sort-change', k: SortKey, o: SortOrder): void
-  (e: 'view-change', v: 'list' | 'grid'): void
   (e: 'upload', files: FileList | null): void
   (e: 'new-folder'): void
   (e: 'new-file'): void
@@ -31,6 +30,9 @@ const emit = defineEmits<{
 
 const searchInput = ref(props.search)
 watch(() => props.search, (v) => { searchInput.value = v })
+
+// 浏览器全屏（整个标签页进全屏），替换掉原来的列表/网格切换。
+const { isFullscreen, supported: fsSupported, toggle: toggleFullscreen } = useFullscreen()
 
 function onSearchKeyup(e: KeyboardEvent) {
   if (e.key === 'Enter') emit('search', searchInput.value.trim())
@@ -87,10 +89,13 @@ function onFileChange(e: Event) {
         <button v-show="searchInput" class="search-clear" @click="clearSearch">×</button>
       </div>
       <button class="icon-btn" :title="t('common.refresh')" @click="emit('refresh')" v-html="ICONS.refresh"></button>
-      <div class="view-toggle">
-        <button class="icon-btn" :class="{ active: viewMode === 'list' }" :title="t('toolbar.listView')" @click="emit('view-change', 'list')" v-html="ICONS.list"></button>
-        <button class="icon-btn" :class="{ active: viewMode === 'grid' }" :title="t('toolbar.gridView')" @click="emit('view-change', 'grid')" v-html="ICONS.grid"></button>
-      </div>
+      <button
+        v-if="fsSupported"
+        class="icon-btn"
+        :title="isFullscreen ? t('toolbar.exitFullscreen') : t('toolbar.fullscreen')"
+        @click="toggleFullscreen"
+        v-html="isFullscreen ? ICONS.compress : ICONS.expand"
+      ></button>
       <button v-if="allowUpload" class="btn btn-primary" @click="triggerUpload">
         <span v-html="ICONS.upload"></span>{{ t('toolbar.upload') }}
       </button>

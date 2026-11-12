@@ -796,17 +796,6 @@ body {
   padding: 0;
 }
 
-.view-toggle {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.view-toggle .icon-btn {
-  border-radius: 0;
-}
-
 .sort-group {
   display: flex;
   align-items: center;
@@ -1086,73 +1075,6 @@ body {
 
 .file-row:hover .col-actions {
   opacity: 1;
-}
-
-/* grid view */
-.file-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  padding: 16px;
-}
-
-.file-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 8px;
-  /* 默认即显示虚线边界，便于看清每个卡片的作用范围 */
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.file-card:hover {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-}
-
-.file-card-icon {
-  color: var(--text-secondary);
-}
-
-.file-card-icon.kind-dir {
-  color: var(--warn);
-}
-
-.file-card-icon.kind-image,
-.file-card-icon.kind-video,
-.file-card-icon.kind-audio {
-  color: var(--kind-media);
-}
-
-.file-card-icon.kind-pdf {
-  color: var(--danger);
-}
-
-.file-card-icon.kind-code,
-.file-card-icon.kind-json,
-.file-card-icon.kind-markdown,
-.file-card-icon.kind-html,
-.file-card-icon.kind-text {
-  color: var(--accent);
-}
-
-.file-card-icon.kind-archive {
-  color: var(--kind-archive);
-}
-
-.file-card-name {
-  text-align: center;
-  word-break: break-all;
-  font-size: 12px;
-  max-width: 100%;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 /* ---------- Error banner ---------- */

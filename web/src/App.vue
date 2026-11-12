@@ -21,7 +21,6 @@ const error = ref('')
 const sort = ref<SortKey>('name')
 const order = ref<SortOrder>('asc')
 const search = ref('')
-const viewMode = ref<'list' | 'grid'>('list')
 const showSidebar = ref(true)
 
 const preview = ref<{ item: PathItem; path: string } | null>(null)
@@ -406,14 +405,12 @@ onBeforeUnmount(() => {
           :allow-upload="allowUpload"
           :allow-archive="allowArchive"
           :allow-search="allowSearch"
-          :view-mode="viewMode"
           :search="search"
           :sort="sort"
           :order="order"
           @toggle-sidebar="showSidebar = !showSidebar"
           @search="onSearch"
           @sort-change="onSortChange"
-          @view-change="viewMode = $event"
           @upload="onUploadFiles"
           @new-folder="onNewFolder"
           @new-file="onNewFile"
@@ -428,7 +425,6 @@ onBeforeUnmount(() => {
         <FileList
           :items="items"
           :loading="loading"
-          :view-mode="viewMode"
           :allow-upload="allowUpload"
           :allow-delete="allowDelete"
           :allow-archive="allowArchive"

@@ -10,7 +10,6 @@ import ContextMenu, { type MenuItem } from './ContextMenu.vue'
 const props = defineProps<{
   items: PathItem[]
   loading: boolean
-  viewMode: 'list' | 'grid'
   allowUpload: boolean
   allowDelete: boolean
   allowArchive: boolean
@@ -98,18 +97,6 @@ function kindLabel(item: PathItem): string {
     </div>
 
     <!-- 空目录不显示任何占位内容 -->
-    <div v-else-if="viewMode === 'grid'" class="file-grid">
-      <div
-        v-for="item in items"
-        :key="item.name"
-        class="file-card"
-        @click="emit('select', item)"
-      >
-        <div class="file-card-icon" :class="'kind-' + fileKind(item.name)" v-html="isDir(item) ? ICONS.folder : ICONS.file"></div>
-        <div class="file-card-name" :title="item.name">{{ item.name }}</div>
-      </div>
-    </div>
-
     <div v-else class="file-list">
       <div class="file-list-head">
         <div class="col-name">{{ t('list.name') }}</div>
