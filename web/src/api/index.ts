@@ -173,3 +173,20 @@ export async function readText(relPath: string, maxBytes = 2 * 1024 * 1024): Pro
   }
   return text
 }
+
+// 按字节区间读取，用于二进制文件的 hex 预览。
+// 服务端实现了 RFC 7233 的 Range（并把超界的 last-byte-pos 裁剪到文件末尾），
+// 所以几 GB 的文件也只传输这一段，不会把内存和带宽吃满。
+// 小文件会被裁剪成整个文件并返回 206，行为一致；只有空文件会退化成 200。
+export async function readBytes(relPath: string, start: number, end: number): Promise<Uint8Array> {
+  const res = await fetch(absUrl(relPath), { headers: { Range: `bytes=${start}-${end}` } })
+  // 200 表示服务端忽略了 Range（例如上游代理去掉了头）：为防止把整个大文件
+  // 读进内存，只在文件本身很小时才接受。
+  if (res.status === 200) {
+    const len = Number(res.headers.get('Content-Length') || 0)
+    if (len > 4 * 1024 * 1024) throw new Error('RANGE_UNSUPPORTED')
+  } else if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`)
+  }
+  return new Uint8Array(await res.arrayBuffer())
+}

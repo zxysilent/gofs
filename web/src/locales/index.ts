@@ -169,6 +169,10 @@ const zh: Record<string, string> = {
   'preview.saving': '保存中...',
   'preview.save': '保存',
   'preview.notSupported': '此文件类型暂不支持在线预览',
+  'preview.hexShown': '十六进制预览：已加载 {shown} / 共 {total}',
+  'preview.hexMore': '加载更多',
+  'preview.hexNoRange': '服务端不支持分段读取，请下载后查看',
+  'preview.hexEmpty': '空文件（0 字节）',
   'preview.tooLarge': '文件过大，无法在线预览，请下载查看。',
   'preview.copyHash': '复制 SHA256',
 
@@ -331,6 +335,10 @@ const en: Record<string, string> = {
   'preview.saving': 'Saving...',
   'preview.save': 'Save',
   'preview.notSupported': 'Preview is not available for this file type',
+  'preview.hexShown': 'Hex preview: {shown} of {total} loaded',
+  'preview.hexMore': 'Load more',
+  'preview.hexNoRange': 'The server does not support range requests; download the file instead',
+  'preview.hexEmpty': 'Empty file (0 bytes)',
   'preview.tooLarge': 'File is too large to preview. Please download it.',
   'preview.copyHash': 'Copy SHA256',
 

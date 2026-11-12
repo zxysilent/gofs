@@ -901,6 +901,9 @@ body {
   color: var(--text-secondary);
   width: 30px;
   height: 30px;
+  /* 浏览器给 button 的默认内边距是 1px 6px，不归零的话窄按钮（如 20px 的
+     复制名称）内容盒只剩 8px，里面的 svg 作为 flex 项会被压缩成 8×13。 */
+  padding: 0;
   border-radius: 6px;
   cursor: pointer;
 }
@@ -1008,6 +1011,16 @@ body {
 .name-copy svg {
   width: 13px;
   height: 13px;
+  /* 不让 flex 压缩图标（配合 .icon-btn 的 padding: 0） */
+  flex-shrink: 0;
+}
+
+/* 列表行里的图标与“复制名称”按钮要对齐到文字的视觉中心，而不是行盒中心。
+   14px 字体的 x-height 中心比行盒中心低 2px，而 .btn（13px）只需要 1px，
+   所以这里单独覆盖掉全局的 1px。 */
+.col-name .file-icon svg,
+.col-name .name-copy {
+  transform: translateY(2px);
 }
 
 .file-row:hover .name-copy,
@@ -1242,6 +1255,41 @@ body {
   padding: 40px;
   text-align: center;
   color: var(--text-secondary);
+}
+
+/* ---------- 二进制 hex 预览 ---------- */
+.hex-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 顶部说明条常驻，滚动的只有下方的 dump */
+.hex-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.hex-bar .preview-meta {
+  margin-right: auto;
+}
+
+.hex-dump {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 10px 16px 16px;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 8;
 }
 
 .code-block {

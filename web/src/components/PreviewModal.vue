@@ -3,8 +3,9 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import type { PathItem } from '../types'
 import { parentRelPath } from '../utils/paths'
 import { fileKind, formatSize, formatTime } from '../utils'
-import { absUrl, readText, fileHash, saveFile } from '../api'
+import { absUrl, readText, readBytes, fileHash, saveFile } from '../api'
 import { renderMarkdown } from '../lib/markdown'
+import { hexDumpLines } from '../lib/hexdump'
 import { renderMath } from '../lib/math'
 import { renderDiagrams } from '../lib/diagram'
 import { ICONS } from '../utils/icons'
@@ -33,6 +34,18 @@ const editable = computed(() =>
 // 能在弹窗内直接看到内容的类型；其余（压缩包、未知二进制、读取失败）只提供下载。
 const inlinePreview = computed(() => editable.value || ['image', 'video', 'audio', 'pdf'].includes(kind))
 
+// 不能直接预览的二进制改用 hexdump：按 Range 分块拉取，看几行魔数不需要下载整个文件。
+const hexMode = computed(() => !inlinePreview.value)
+const HEX_CHUNK = 16 * 1024
+const HEX_INITIAL = 32 * 1024
+// 上限：再大就只是在刷 DOM，真要看内容应该下载下来。
+const HEX_LIMIT = 256 * 1024
+const hexLines = ref<string[]>([])
+const hexLoaded = ref(0)
+const hexLoading = ref(false)
+const hexHasMore = ref(false)
+const hexError = ref('')
+
 const bodyHtml = ref<string>('')
 const bodyError = ref('')
 const loading = ref(true)
@@ -51,6 +64,19 @@ const htmlPreview = ref(true)
 const hasSource = ref(false)
 
 const dirty = computed(() => editing.value && editContent.value !== originalContent.value)
+
+const hexText = computed(() => hexLines.value.join('\n'))
+const hexTotal = computed(() => Math.max(0, props.item.size || 0))
+const hexCanLoadMore = computed(
+  () => hexHasMore.value && hexLoaded.value < HEX_LIMIT && hexLoaded.value < hexTotal.value,
+)
+// 首行提示：已渲染多少 / 文件多大，避免误以为看的就是全部内容。
+const hexNotice = computed(() =>
+  t('preview.hexShown', {
+    shown: formatSize(hexLoaded.value),
+    total: formatSize(hexTotal.value),
+  }),
+)
 
 const mdRendered = computed(() => renderMarkdown(editContent.value, { baseUrl: docBaseUrl }))
 
@@ -194,6 +220,41 @@ function renderTextView(text: string) {
   }
 }
 
+// 读取二进制片段并追加到 hexdump。
+// append=true 时从已加载位置续读一个块，否则从 0 开始读首屏大小。
+async function loadHex(append: boolean) {
+  if (hexLoading.value) return
+  const size = hexTotal.value
+  if (size === 0) {
+    hexLines.value = []
+    hexLoaded.value = 0
+    hexHasMore.value = false
+    return
+  }
+  const start = append ? hexLoaded.value : 0
+  if (start >= size) {
+    hexHasMore.value = false
+    return
+  }
+  hexLoading.value = true
+  hexError.value = ''
+  try {
+    const want = append ? HEX_CHUNK : HEX_INITIAL
+    const end = Math.min(start + want, size) - 1
+    const bytes = await readBytes(props.path, start, end)
+    const lines = hexDumpLines(bytes, start)
+    hexLines.value = append ? hexLines.value.concat(lines) : lines
+    hexLoaded.value = start + bytes.length
+    hexHasMore.value = hexLoaded.value < size
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    hexError.value = msg === 'RANGE_UNSUPPORTED' ? t('preview.hexNoRange') : msg
+    hexHasMore.value = false
+  } finally {
+    hexLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     if (kind === 'image') {
@@ -221,6 +282,9 @@ onMounted(async () => {
       editContent.value = text
       hasSource.value = true
       renderTextView(text)
+    } else if (hexMode.value) {
+      // 压缩包与未知二进制：给 hexdump，而不是把「不支持预览」直接写在脸上。
+      await loadHex(false)
     } else {
       bodyHtml.value = `<div class="preview-center"><div class="binary-box">${ICONS.file}<p>${t('preview.notSupported')}</p><p class="preview-meta">${formatSize(props.item.size)}</p></div></div>`
     }
@@ -303,9 +367,29 @@ onMounted(async () => {
             spellcheck="false"
           ></textarea>
         </template>
+        <template v-else-if="hexMode">
+          <div class="hex-wrap">
+            <div class="hex-bar">
+              <span class="preview-meta">{{ hexNotice }}</span>
+              <button
+                v-if="hexCanLoadMore"
+                class="btn"
+                :disabled="hexLoading"
+                @click="loadHex(true)"
+              >
+                <span v-html="ICONS.more"></span>{{ hexLoading ? t('common.loading') : t('preview.hexMore') }}
+              </button>
+            </div>
+            <div v-if="hexError" class="preview-error">{{ hexError }}</div>
+            <div v-else-if="!hexTotal" class="preview-error">{{ t('preview.hexEmpty') }}</div>
+            <!-- 用插值而不是 v-html：ASCII 列可能包含 < > & 这些字符 -->
+            <pre v-else class="hex-dump">{{ hexText }}</pre>
+          </div>
+        </template>
         <div v-else ref="bodyRef" v-html="bodyHtml"></div>
+        <!-- hex 模式下下载按钮已在标题栏，这里再放一个会把 dump 挤出可视区 -->
         <div
-          v-if="!loading && !editing && (!inlinePreview || bodyError)"
+          v-if="!loading && !editing && (bodyError || (!inlinePreview && !hexMode))"
           style="text-align:center;margin-top:12px"
         >
           <button class="btn btn-primary" @click="download">
