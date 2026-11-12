@@ -171,7 +171,7 @@ func genReadmeDocZH(s *Server, base string) string {
 	d.h(3, "预览与编辑")
 	d.list(
 		"支持图片、视频、音频、PDF、Markdown、代码、JSON、文本在线预览。",
-		"文本类文件可点「编辑」在线修改，`Ctrl/Cmd+S` 保存；Markdown 编辑时可切换预览。",
+		"文本类文件可点「编辑」在线修改，改完点「保存」生效；Markdown 编辑时可切换预览。",
 		"预览窗口底部显示文件 SHA256，可一键复制。",
 	)
 	d.h(3, "外观与语言")
@@ -252,7 +252,7 @@ func genReadmeDocEN(s *Server, base string) string {
 	d.h(3, "Preview and edit")
 	d.list(
 		"Images, video, audio, PDF, Markdown, code, JSON and plain text can be previewed in the browser.",
-		"Text-like files can be edited in place: click \"Edit\", then `Ctrl/Cmd+S` to save. Markdown editing can be toggled to preview.",
+		"Text-like files can be edited in place: click \"Edit\", then \"Save\" to apply. Markdown editing can be toggled to preview.",
 		"The preview footer shows the file SHA256 and offers a one-click copy button.",
 	)
 	d.h(3, "Appearance and language")
