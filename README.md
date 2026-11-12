@@ -109,7 +109,7 @@ Pin a version, or choose where it lands:
 
 ```sh
 # specific version
-curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.2.1
+curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --version 0.2.2
 
 # no sudo needed
 curl -fsSL https://raw.githubusercontent.com/zxysilent/gofs/master/install.sh | bash -s -- --dir "$HOME/.local/bin"
@@ -128,7 +128,7 @@ Grab the archive for your platform from the
 the binary on your `PATH`:
 
 ```sh
-ver=0.2.1
+ver=0.2.2
 base="https://github.com/zxysilent/gofs/releases/download/v${ver}"
 curl -fsSLO "${base}/SHA256SUMS"
 curl -fsSLO "${base}/gofs_${ver}_linux_amd64.tar.gz"
@@ -186,7 +186,7 @@ The equivalent without make (`make` targets are thin wrappers): `make web`,
 A release build bakes the version in at link time:
 
 ```sh
-CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=0.2.1" -o gofs .
+CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=0.2.2" -o gofs .
 ```
 
 ## Usage
@@ -425,8 +425,8 @@ Everything lives in `.github/workflows/`:
 Cut a release with:
 
 ```sh
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.2.2
+git push origin v0.2.2
 ```
 
 The installer reads that release, so the one-line install command always
