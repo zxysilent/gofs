@@ -120,6 +120,11 @@ func isText(b []byte) bool {
 
 // getContentType determines a file's content type, appending a charset when the
 // content looks like text.
+//
+// 文本一律标 charset=utf-8，不再嗅探具体编码：站点以 UTF-8 为准，嗅探
+// （尤其是只看前 1 KiB 就猜）反而会把合法 UTF-8 判成 windows-1252，
+// 让浏览器按西文解码，中文全乱码。非 UTF-8 的旧文件可能显示成乱码，
+// 但那是文件本身需要转码，不应该让正常文件背锅。
 func getContentType(filePath string) string {
 	mimeType := mime.TypeByExtension(strings.ToLower(path.Ext(filePath)))
 	// mime.TypeByExtension 对 .txt/.html 等已经带 charset，直接再拼一个就会出现
@@ -132,16 +137,13 @@ func getContentType(filePath string) string {
 	defer f.Close()
 	buf := make([]byte, 1024)
 	n, _ := io.ReadFull(f, buf)
-	buf = buf[:n]
-	if isText(buf) {
-		charset := "utf-8"
-		if !utf8.Valid(buf) {
-			charset = detectCharset(buf)
-		}
+	// 只要看着像文本就给 utf-8，不再区分是否「合法」：一个被切在第 1024 字节
+	// 中间的多字节字符不该改变整个文件的编码声明。
+	if isText(buf[:n]) {
 		if mimeType != "" {
-			return mimeType + "; charset=" + charset
+			return mimeType + "; charset=utf-8"
 		}
-		return "text/plain; charset=" + charset
+		return "text/plain; charset=utf-8"
 	}
 	return fallbackMime(mimeType)
 }
@@ -151,20 +153,6 @@ func fallbackMime(mimeType string) string {
 		return "application/octet-stream"
 	}
 	return mimeType
-}
-
-// detectCharset performs a minimal charset detection for non-UTF-8 text.
-func detectCharset(b []byte) string {
-	if len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
-		return "utf-8"
-	}
-	if len(b) >= 2 && b[0] == 0xFF && b[1] == 0xFE {
-		return "utf-16le"
-	}
-	if len(b) >= 2 && b[0] == 0xFE && b[1] == 0xFF {
-		return "utf-16be"
-	}
-	return "windows-1252"
 }
 
 // sha256File returns the lowercase hex sha256 of a file.

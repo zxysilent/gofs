@@ -67,6 +67,47 @@ func TestGetContentTypeHasSingleCharset(t *testing.T) {
 	}
 }
 
+// 嗅探缓冲区只有 1024 字节，末尾可能正好把中文这种多字节字符切成两半。
+// 以前会因此把合法 UTF-8 判成 windows-1252，浏览器按西文解码，中文全是
+// 乱码（线上曾出现：同一目录里只有部分 Markdown 乱码）。现在文本一律 utf-8。
+func TestGetContentTypeUTF8SplitAtSniffBoundary(t *testing.T) {
+	dir := t.TempDir()
+	// 「中」占 3 字节：341 个正好 1023 字节，第 1024 字节落在下一个字符内部。
+	for name, body := range map[string]string{
+		"split1.md": strings.Repeat("中", 341) + "# 标题\n正文\n",
+		"split2.md": strings.Repeat("中", 340) + "ab" + "# 标题\n",
+		"emojis.md": strings.Repeat("😀", 256) + "尾巴\n", // 4 字节字符，255.75 个落在界内
+		"deep.txt":  strings.Repeat("汉", 500),
+		"beyond.md": strings.Repeat("x", 1023) + "中文内容\n",
+	} {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if ct := getContentType(p); !strings.Contains(ct, "charset=utf-8") {
+			t.Errorf("%s: content type = %q, want charset=utf-8", name, ct)
+		}
+	}
+}
+
+// 非 UTF-8 的旧文件也一律标 utf-8：站点以 UTF-8 为准，不去嗅探编码。
+// 需要旧编码文件的用户应当自行转码，而不是让正常文件跟着变乱码。
+func TestGetContentTypeLegacyTextIsStillUTF8(t *testing.T) {
+	dir := t.TempDir()
+	// windows-1252 的 café：0xE9 不是合法 UTF-8 字节。
+	p := filepath.Join(dir, "legacy.txt")
+	if err := os.WriteFile(p, []byte("caf\xe9 na\xefve\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ct := getContentType(p)
+	if n := strings.Count(ct, "charset="); n != 1 {
+		t.Errorf("content type %q has %d charset parameters, want 1", ct, n)
+	}
+	if !strings.Contains(ct, "charset=utf-8") {
+		t.Errorf("content type %q: 文本应统一标 utf-8", ct)
+	}
+}
+
 // ---- WebDAV root naming ----
 
 // 服务根的相对路径是 "."，必须归一成空串，否则 PROPFIND 会返回 /./ 与 "."。
