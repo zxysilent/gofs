@@ -1590,6 +1590,31 @@ body {
   overflow-x: auto;
 }
 
+/* 内嵌 HTML 常带作者写死的浅色配色（例如 background:#f3f6fb）。
+   浅色主题下问题不大，切到暗色就变成一块刺眼的浅色底，和界面完全脱节。
+   内联样式的优先级高于任何类选择器，只能靠 !important 把它改写成主题变量：
+   --bg / --text / --border 在明暗两套主题里都有对应值，等同于「跟随主题」。
+   属性选择器只命中真正写了该属性的元素，只写 width/padding 的标签不受影响。
+
+   注意范围要克制：只有自带了底色的元素才连文字色一起改（作者往往把前景色和
+   背景色配成一对，只改背景会得到浅字浅底）。单独写 color 的元素不动，否则
+   「红色表示告警、绿色表示通过」这类语义色会被抹平。 */
+.markdown-body .md-html [style*='background'] {
+  background-color: var(--bg) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+}
+
+.markdown-body .md-html [style*='border'] {
+  border-color: var(--border) !important;
+}
+
+/* 内嵌 HTML 里的代码块沿用预览自身的代码样式，避免作者写死另一套配色 */
+.markdown-body .md-html pre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
 .markdown-body table {
   border-collapse: collapse;
   font-size: 13px;
