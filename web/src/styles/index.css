@@ -1584,6 +1584,12 @@ body {
   overflow-x: auto;
 }
 
+/* Markdown 里内嵌的原始 HTML 块：同样限制在预览宽度内 */
+.markdown-body .md-html {
+  margin: 0 0 12px;
+  overflow-x: auto;
+}
+
 .markdown-body table {
   border-collapse: collapse;
   font-size: 13px;

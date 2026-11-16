@@ -51,6 +51,7 @@ const zh: HelpSection[] = [
     title: '预览与编辑',
     items: [
       '支持图片、视频、音频、PDF、Markdown、网页（HTML）、代码、JSON、文本在线预览。',
+      'Markdown 里内嵌的 HTML（表格、details、带样式的对照表）会正常渲染，但会先过白名单清洗：脚本、iframe、内联样式表、on* 事件与 javascript: 链接会被剔除。',
       '类型按后缀判断：没有明确后缀（且不在文本文件名白名单里的）文件一律当作二进制，不当文本打开。',
       '文本类文件可直接点"编辑"在线修改，改完点"保存"生效；Markdown 编辑时可切换预览。',
       '代码与文本可在预览底栏右侧的"换行 / 滚动"开关间切换，默认自动换行；超过 8 MiB 的文件不展开预览与编辑（仍可下载，二进制走十六进制视图）。',
@@ -111,6 +112,7 @@ const en: HelpSection[] = [
     title: 'Preview & edit',
     items: [
       'Images, video, audio, PDF, Markdown, HTML pages, code, JSON and plain text can be previewed in the browser.',
+      'Raw HTML embedded in Markdown (tables, details, styled comparison grids) is rendered, after a whitelist sanitize pass: scripts, iframes, style elements, on* handlers and javascript: URLs are stripped.',
       'Type detection relies on the extension: files without a known text suffix (and not in the well-known text-file name list) are treated as binary and never opened as text.',
       'Text-like files can be edited in place: click "Edit", then click "Save" to apply. Markdown editing can be toggled to preview.',
       'The "Wrap / Scroll" toggle at the right of the preview footer switches between wrapped lines and horizontal scrolling (wrapping is the default). Files over 8 MiB are not opened for preview or editing, but can still be downloaded (binaries fall back to the hex view).',

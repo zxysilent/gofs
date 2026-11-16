@@ -69,6 +69,164 @@ function diagramNode(source: string): string {
   return `<div class="${DIAGRAM_CLASS}"><pre class="md-diagram-src">${esc(source)}</pre></div>`
 }
 
+// ---- raw HTML ----
+// Markdown 里内嵌 HTML 是常见写法（对照表、details、带样式的代码块），
+// 一律转义会把它当普通文字整段显示出来。这里允许渲染，但必须清洗：
+// 预览是把 HTML 注入本站页面（同源），不清洗就等于允许 md 作者执行任意
+// 脚本、读取当前用户的会话。
+
+/** 允许渲染的标签。只收排版用标签，不含任何能加载/执行代码的元素。 */
+const SAFE_TAGS = new Set([
+  'a', 'abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'big',
+  'blockquote', 'br', 'caption', 'center', 'cite', 'code', 'col', 'colgroup',
+  'dd', 'del', 'details', 'dfn', 'div', 'dl', 'dt', 'em', 'figcaption',
+  'figure', 'font', 'footer', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header',
+  'hgroup', 'hr', 'i', 'img', 'ins', 'kbd', 'li', 'main', 'mark', 'nav', 'ol',
+  'p', 'pre', 'q', 's', 'samp', 'section', 'small', 'span', 'strike',
+  'strong', 'sub', 'summary', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th',
+  'thead', 'tr', 'tt', 'u', 'ul', 'var', 'wbr',
+])
+
+/** 连同内容整块丢弃：脚本、样式、嵌入对象、表单控件、可自动播放的媒体。 */
+const DROP_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button',
+  'select', 'option', 'optgroup', 'textarea', 'link', 'meta', 'base',
+  'template', 'noscript', 'svg', 'math', 'video', 'audio', 'source', 'track',
+  'canvas', 'applet', 'frame', 'frameset', 'dialog',
+])
+
+/** 能开启一个 HTML 块的标签（对齐 CommonMark 的块级标签集合）。 */
+const BLOCK_HTML_TAGS = new Set([
+  'address', 'article', 'aside', 'blockquote', 'caption', 'center', 'colgroup',
+  'dd', 'details', 'dialog', 'dir', 'div', 'dl', 'dt', 'fieldset', 'figcaption',
+  'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header',
+  'hgroup', 'hr', 'iframe', 'li', 'main', 'menu', 'nav', 'noscript', 'ol', 'p',
+  'pre', 'script', 'section', 'style', 'summary', 'table', 'tbody', 'td',
+  'tfoot', 'th', 'thead', 'tr', 'ul', 'svg', 'video', 'audio',
+])
+
+const VOID_TAGS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta',
+  'param', 'source', 'track', 'wbr',
+])
+
+/** 需要按 URL 处理（可触发请求或跳转）的属性。 */
+const URL_ATTRS = new Set(['href', 'src', 'xlink:href', 'action', 'poster', 'cite', 'data'])
+
+// 标签匹配：优先吃掉引号内的 > ，避免把属性值里的尖括号当成标签结尾。
+const RE_HTML_TAG = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:"[^"]*"|'[^']*'|[^>"'])*>/g
+
+function tagNameOf(tag: string): string {
+  const m = /^<\/?([a-zA-Z][a-zA-Z0-9-]*)/.exec(tag)
+  return m ? m[1].toLowerCase() : ''
+}
+
+// 只允许 http(s)/相对路径与内联位图，挡掉 javascript:/vbscript:/data:text/html。
+function sanitizeUrl(raw: string, base: string): string | null {
+  // 去掉控制字符与空白：`java\nscript:` 这类绕过手段都要拦。
+  const v = raw.replace(/[\u0000-\u0020]/g, '')
+  if (!v) return ''
+  const lower = v.toLowerCase()
+  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) return null
+  if (lower.startsWith('data:')) {
+    // 只放行位图；data:image/svg+xml 里可以带脚本，一律拒绝。
+    return /^data:image\/(png|jpe?g|gif|webp|avif|bmp);/i.test(v) ? v : null
+  }
+  return resolveUrl(v, base)
+}
+
+// style 属性保留（内嵌表格靠它排版），但要挡掉能执行代码的老写法。
+function sanitizeStyle(raw: string): string {
+  if (/expression\s*\(|javascript:|vbscript:|-moz-binding|behavior\s*:/i.test(raw)) {
+    return ''
+  }
+  return raw
+}
+
+function cleanNode(root: ParentNode, base: string): void {
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const tag = el.tagName.toLowerCase()
+    if (DROP_TAGS.has(tag)) {
+      el.remove()
+      continue
+    }
+    if (!SAFE_TAGS.has(tag)) {
+      // 不认识的标签：拆掉外壳，保留里面的文字与子元素。
+      el.replaceWith(...Array.from(el.childNodes))
+      continue
+    }
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase()
+      if (name.startsWith('on') || name === 'srcdoc' || name === 'formaction') {
+        el.removeAttribute(attr.name)
+        continue
+      }
+      if (URL_ATTRS.has(name)) {
+        const url = sanitizeUrl(attr.value, base)
+        if (url === null) el.removeAttribute(attr.name)
+        else el.setAttribute(attr.name, url)
+        continue
+      }
+      if (name === 'style') {
+        const css = sanitizeStyle(attr.value)
+        if (css) el.setAttribute('style', css)
+        else el.removeAttribute('style')
+      }
+    }
+    if (tag === 'a') {
+      el.setAttribute('target', '_blank')
+      el.setAttribute('rel', 'noopener noreferrer')
+    }
+    // src 被移除的图片只会显示一个破图图标，不如整张拿掉。
+    if (tag === 'img' && !el.getAttribute('src')) el.remove()
+  }
+}
+
+/** 去掉标签只留文字，用来判断一段渲染结果是否等于空。 */
+function stripTags(s: string): string {
+  return s.replace(/<[^>]*>/g, '')
+}
+
+/** 清洗一段 HTML 并返回可安全插入页面的字符串。 */
+function sanitizeHtml(html: string, base: string): string {
+  if (typeof document === 'undefined') return esc(html)
+  const tpl = document.createElement('template')
+  tpl.innerHTML = html
+  cleanNode(tpl.content, base)
+  const wrap = document.createElement('div')
+  wrap.appendChild(tpl.content)
+  return wrap.innerHTML
+}
+
+// 单行内某个块级标签的开合差；void 与自闭合标签不计入深度。
+function tagDepth(line: string, tag: string): number {
+  const opens = (line.match(new RegExp(`<${tag}(?=[\\s/>])`, 'gi')) || []).length
+  const closes = (line.match(new RegExp(`</${tag}\\s*>`, 'gi')) || []).length
+  const selfClosed = (line.match(new RegExp(`<${tag}[^>]*/>`, 'gi')) || []).length
+  return opens - closes - selfClosed
+}
+
+// takeHtmlBlock 从 start 行开始吞掉一个完整的 HTML 块。
+// 按同名标签的开合深度判断结束，因此块内部的空行不会提前截断表格。
+function takeHtmlBlock(lines: string[], start: number): { text: string; next: number } | null {
+  const m = /^ {0,3}<([a-zA-Z][a-zA-Z0-9-]*)/.exec(lines[start])
+  if (!m) return null
+  const tag = m[1].toLowerCase()
+  if (!BLOCK_HTML_TAGS.has(tag)) return null
+  if (VOID_TAGS.has(tag)) return { text: lines[start], next: start + 1 }
+
+  const buf = [lines[start]]
+  let depth = tagDepth(lines[start], tag)
+  let next = start + 1
+  // 单行闭合（<div>…</div> 写在同一行）直接收工。
+  while (depth > 0 && next < lines.length) {
+    buf.push(lines[next])
+    depth += tagDepth(lines[next], tag)
+    next++
+  }
+  return { text: buf.join('\n'), next }
+}
+
 // splitRow breaks a table row into trimmed cells, honouring `\|` escapes.
 function splitRow(row: string): string[] {
   let s = row.trim()
@@ -139,6 +297,27 @@ export function renderMarkdown(src: string, opts?: MarkdownOptions): string {
     if (line.trim() === '') {
       i++
       continue
+    }
+
+    // ---- HTML 注释 ----
+    // 单独成行的注释直接丢弃，否则会留下一个空段落。
+    if (line.trimStart().startsWith('<!--')) {
+      while (i < lines.length && !lines[i].includes('-->')) i++
+      i++
+      continue
+    }
+
+    // ---- HTML block ----
+    // 内嵌 HTML 整块保留（表格、details、带样式的对照表），但先过白名单清洗。
+    if (line.trimStart().startsWith('<')) {
+      const block = takeHtmlBlock(lines, i)
+      if (block) {
+        // 清洗后什么都不剩（script / iframe / 纯注释）就不要留空壳。
+        const html = sanitizeHtml(block.text, ctx.base).trim()
+        if (html) out.push(`<div class="md-html">${html}</div>`)
+        i = block.next
+        continue
+      }
     }
 
     // ---- block math ----
@@ -246,9 +425,12 @@ export function renderMarkdown(src: string, opts?: MarkdownOptions): string {
       i++
       continue
     }
-    out.push(
-      `<p>${buf.map((l) => inline(l.trim(), ctx) + (/ {2,}$/.test(l) ? '<br/>' : '')).join('\n')}</p>`,
-    )
+    // 只剩被清洗掉的标签（例如 javascript: 的 img）时，不要留一个空段落
+    const paraHtml = buf
+      .map((l) => inline(l.trim(), ctx) + (/ {2,}$/.test(l) ? '<br/>' : ''))
+      .join('\n')
+    if (stripTags(paraHtml).trim() === '' && !/<(img|br|hr)\b/i.test(paraHtml)) continue
+    out.push(`<p>${paraHtml}</p>`)
   }
 
   return out.join('\n')
@@ -343,6 +525,16 @@ function inline(s: string, ctx: Ctx): string {
   // 行内 $...$：开头后不能是空白、结尾前不能是空白、结束符后不能紧跟数字，
   // 这样 "$5 和 $10" 之类的金额不会被误判成公式。
   masked = masked.replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, (_m, tex: string) => hold(mathNode(tex, false)))
+
+  // 3) 行内 HTML：白名单标签保留并清洗，其余（如 `a < b`）照旧转义。
+  // HTML 注释直接丢掉，否则会以 `<!-- … -->` 原样显示出来。
+  masked = masked.replace(/<!--[\s\S]*?-->/g, '')
+  masked = masked.replace(RE_HTML_TAG, (tag: string) => {
+    const name = tagNameOf(tag)
+    if (!name || !SAFE_TAGS.has(name)) return tag
+    // 闭合标签没有属性可清，直接归一成小写；开标签交给统一清洗。
+    return hold(tag.startsWith('</') ? `</${name}>` : sanitizeHtml(tag, ctx.base))
+  })
 
   return inlineText(masked, ctx).replace(
     /\u0000(\d+)\u0000/g,
