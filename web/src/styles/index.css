@@ -1702,15 +1702,26 @@ body {
 }
 
 /* ---------- Upload manager ---------- */
+/* 悬浮在右下角的进度面板：必须脱离文档流，否则会占掉 .app 横向布局的一列，
+   把文件列表挤窄（现在节点用的是 .upload-manager 类，见组件模板）。 */
 .upload-manager {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  width: 320px;
+  /* 窄屏时不要顶到屏幕外面 */
+  width: min(320px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   z-index: 90;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* 面板下方是文件列表，只有卡片本身接收鼠标事件 */
+  pointer-events: none;
+}
+
+.upload-manager > * {
+  pointer-events: auto;
 }
 
 .upload-item {
@@ -1729,10 +1740,19 @@ body {
 }
 
 .upload-name {
+  /* flex 项要能收缩，否则长文件名会把状态图标顶出卡片 */
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+}
+
+/* 状态图标不参与收缩，始终留在卡片右上角 */
+.upload-status {
+  flex: 0 0 auto;
+  padding-left: 8px;
 }
 
 .upload-status.done {
